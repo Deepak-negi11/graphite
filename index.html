@@ -1,0 +1,810 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Graphite'26 Builder Card</title>
+<meta name="description" content="Get your Graphite'26 builder card — hackathon at an altitude of 4494.75 ft, Graphic Era Hill University, 27–28 October.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bangers&family=Geist:wght@400;500;600&family=Space+Mono:wght@400;700&family=Titillium+Web:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #070812;
+    --line: rgba(255,255,255,.12);
+    --line-strong: rgba(255,255,255,.28);
+    --text: #f3f3f7;
+    --muted: #9095ad;
+    --red: #e3242b;
+    --yellow: #ffd23f;
+    --mono: "Space Mono", ui-monospace, monospace;
+    --sans: "Titillium Web", system-ui, sans-serif;
+    --comic: "Bangers", Impact, sans-serif;
+    --geist: "Geist", system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body { background: var(--bg); color: var(--text); font-family: var(--sans); -webkit-font-smoothing: antialiased; overflow-x: hidden; }
+  a { color: inherit; text-decoration: none; }
+  button { font: inherit; color: inherit; }
+  [hidden] { display: none !important; }
+
+  .bg { position: fixed; inset: 0; pointer-events: none;
+    background: radial-gradient(1100px 650px at 50% -10%, rgba(35,72,201,.22), transparent 60%), var(--bg); }
+  .bg svg { position: absolute; top: -40px; width: 460px; }
+  .bg .l { left: -40px; } .bg .r { right: -40px; transform: scaleX(-1); }
+
+  /* top bar */
+  .topbar { position: fixed; top: 0; left: 0; right: 0; z-index: 30; display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; pointer-events: none; }
+  .topbar > * { pointer-events: auto; }
+  .btn-back { font-family: var(--mono); font-size: 11px; letter-spacing: .12em; border: 1px solid var(--line-strong); background: rgba(7,8,18,.6); padding: 8px 12px; cursor: pointer; white-space: nowrap; }
+  .btn-back:hover { border-color: var(--red); color: var(--red); }
+  .brand { display: flex; align-items: center; gap: 10px; margin-left: auto; }
+  .brand .uni { font-family: Georgia, serif; font-weight: 700; line-height: 1; font-size: 15px; text-align: right; }
+  .brand .x { font-family: var(--mono); color: var(--muted); }
+  .brand .g { width: 32px; height: 32px; border-radius: 50%; background: #fff; color: #111; position: relative; display: grid; place-items: center; font-weight: 700; font-size: 21px; line-height: 1; padding-bottom: 4px; }
+  .brand .g::after { content: ""; position: absolute; top: 2px; right: 2px; width: 9px; height: 9px; border-radius: 50%; background: var(--red); }
+
+  /* shared */
+  .label { font-family: var(--mono); font-size: 11px; letter-spacing: .14em; text-transform: uppercase; }
+  .label.red { color: var(--red); font-weight: 700; }
+  .btn { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; font-family: var(--mono); font-size: 12px; letter-spacing: .14em; text-transform: uppercase; padding: 15px 16px; border: 1px solid var(--line-strong); background: transparent; cursor: pointer; transition: border-color .15s, background .15s; }
+  .btn:hover { border-color: var(--text); }
+  .btn.primary { background: var(--red); border-color: var(--red); color: #fff; }
+  .btn.primary:hover { background: #f23a40; }
+  .btn + .btn { margin-top: 8px; }
+  .link-btn { display: inline-flex; gap: 6px; align-items: center; margin-top: 14px; background: none; border: 0; border-bottom: 1px solid var(--line-strong); padding: 0 0 2px; cursor: pointer; color: var(--muted); }
+  .link-btn:hover { color: var(--text); border-color: var(--text); }
+.toast { position: fixed; top: 18px; left: 50%; z-index: 60; max-width: calc(100% - 32px); transform: translate(-50%, -8px); opacity: 0; pointer-events: none; transition: .25s;
+    background: var(--text); color: #111; font-family: var(--mono); font-size: 12px; letter-spacing: .04em; padding: 10px 14px; box-shadow: 0 12px 40px rgba(0,0,0,.45); }
+  .toast.show { opacity: 1; transform: translate(-50%, 0); }
+  .credit { display: block; margin-top: 28px; font-family: var(--mono); font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+  .credit a { color: var(--text); border-bottom: 1px solid var(--line-strong); padding-bottom: 1px; }
+  .credit a:hover { color: var(--red); border-color: var(--red); }
+  .form-wrap .credit { text-align: center; }
+  .logo-type { font-family: var(--comic); color: var(--red); letter-spacing: .02em; line-height: .9; transform: skewX(-8deg) rotate(-3deg); text-shadow: 3px 3px 0 #000; }
+  .dates-type { font-family: var(--comic); color: var(--yellow); letter-spacing: .03em; transform: skewX(-8deg) rotate(-3deg); text-shadow: 2px 2px 0 #000; }
+
+  /* ---------- form ---------- */
+  #formView { position: relative; z-index: 2; min-height: 100vh; display: grid; place-items: center; padding: 90px 16px 40px; }
+  .form-wrap { width: 100%; max-width: 360px; }
+  .form-hero { text-align: center; margin-bottom: 30px; }
+  .form-hero .alt { font-weight: 600; font-size: 15px; transform: rotate(-3deg); }
+  .form-hero .alt b { color: var(--yellow); }
+  .form-hero .logo-type { font-size: clamp(64px, 18vw, 88px); margin: 4px 0 2px; }
+  .form-hero .dates-type { font-size: 32px; }
+  .form-wrap h2 { font-size: 22px; margin: 0 0 18px; }
+  .field { margin-bottom: 16px; }
+  .field > label { display: block; color: var(--muted); margin-bottom: 8px; font-size: 10px; }
+  .input { display: flex; align-items: center; background: rgba(16,19,42,.85); border: 1px solid var(--line-strong); }
+  .input:focus-within { border-color: var(--red); }
+  .input span { padding-left: 12px; color: var(--muted); font-family: var(--mono); }
+  .input input { flex: 1; min-width: 0; background: none; border: 0; outline: 0; color: var(--text); font: 16px var(--sans); padding: 12px; }
+  .input input::placeholder { color: #5b6080; }
+  .photo-pick { display: flex; align-items: center; gap: 12px; cursor: pointer; border: 1px dashed var(--line-strong); padding: 10px 12px; background: rgba(16,19,42,.5); }
+  .photo-pick:hover, .photo-pick:focus-within { border-color: var(--red); }
+  .photo-pick .thumb { width: 40px; height: 40px; display: grid; place-items: center; background: #1a1d36; color: var(--muted); font-size: 20px; overflow: hidden; flex: none; }
+  .photo-pick .thumb img { width: 100%; height: 100%; object-fit: cover; filter: grayscale(1) contrast(1.2); }
+  .photo-pick .txt { font-size: 14px; color: var(--muted); }
+  .photo-pick .txt b { color: var(--text); font-weight: 600; display: block; }
+  .sr { position: absolute; width: 1px; height: 1px; opacity: 0; overflow: hidden; }
+  .error { color: var(--red); font-size: 13px; min-height: 18px; margin: -4px 0 8px; }
+
+  /* ---------- card page ---------- */
+  #cardView { position: relative; z-index: 2; overflow: hidden; }
+  .layout { position: relative; min-height: 100vh; display: grid; grid-template-columns: minmax(240px, 300px) 1fr minmax(240px, 300px); align-items: center; gap: 24px; padding: 0 32px; }
+  .side { position: relative; z-index: 5; }
+  .side h1 { font-size: clamp(26px, 2.6vw, 34px); line-height: 1.1; margin: 10px 0 10px; letter-spacing: -.015em; overflow-wrap: anywhere; }
+  .side p { color: var(--muted); font-size: 16px; line-height: 1.55; margin: 0 0 22px; }
+  .side p b { color: var(--text); }
+  .facts { border-top: 1px solid var(--line); margin: 0 0 22px; }
+  .facts div { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+  .facts dt { font-family: var(--mono); font-size: 10px; letter-spacing: .14em; color: var(--muted); text-transform: uppercase; }
+  .facts dd { margin: 0; font-size: 17px; }
+
+  .stage { position: relative; height: 100vh; min-height: 680px; z-index: 6; }
+  #strap { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+  .card { position: absolute; left: 0; top: 0; width: 290px; transform-origin: 145px 0; will-change: transform; touch-action: none; cursor: grab; }
+  .card.dragging { cursor: grabbing; }
+  .clip { position: absolute; left: 50%; top: 0; width: 40px; height: 24px; margin-left: -20px; z-index: 3; background: #4a4c55; border-radius: 2px 2px 0 0; }
+  .clip::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 3px; background: rgba(0,0,0,.35); }
+  .clip::after { content: ""; position: absolute; left: 50%; top: 24px; width: 58px; height: 9px; margin-left: -29px; background: #393b43; border-radius: 1px; }
+  .card3d { position: relative; width: 290px; height: 432px; margin-top: 22px; transform-style: preserve-3d; }
+  .face { position: absolute; inset: 0; backface-visibility: hidden; -webkit-backface-visibility: hidden; border-radius: 16px; overflow: hidden; padding: 22px 16px 14px;
+    background: linear-gradient(172deg, #15182f 0%, #0b0c18 55%, #3a0c12 100%); border: 1px solid rgba(255,255,255,.12); box-shadow: 0 30px 60px rgba(0,0,0,.55); user-select: none; -webkit-user-select: none; }
+  .face::before { content: ""; position: absolute; top: 4px; left: 50%; width: 62px; height: 13px; margin-left: -31px; border-radius: 7px; background: #050507; }
+  .shine { position: absolute; inset: 0; pointer-events: none; mix-blend-mode: screen; opacity: 0; background: linear-gradient(115deg, transparent 30%, rgba(255,255,255,.3) 45%, rgba(255,210,63,.12) 52%, transparent 65%); }
+  .card-top { display: flex; justify-content: space-between; align-items: center; margin-top: 6px; }
+  .card-top .label { font-size: 8px; letter-spacing: .16em; color: var(--yellow); font-weight: 700; }
+  .mini-logo { font-family: var(--comic); color: var(--red); font-size: 17px; letter-spacing: .03em; }
+  .portrait { position: relative; margin-top: 10px; height: 222px; }
+  .portrait canvas { width: 100%; height: 100%; display: block; image-rendering: pixelated; }
+  .corner { position: absolute; width: 12px; height: 12px; border: 2px solid var(--text); opacity: .8; }
+  .c1 { top: -5px; left: -5px; border-right: 0; border-bottom: 0; } .c2 { top: -5px; right: -5px; border-left: 0; border-bottom: 0; }
+  .c3 { bottom: -5px; left: -5px; border-right: 0; border-top: 0; } .c4 { bottom: -5px; right: -5px; border-left: 0; border-top: 0; }
+  .role { position: absolute; left: 10px; bottom: 10px; font-family: var(--mono); font-size: 8px; letter-spacing: .16em; background: var(--text); color: #111; padding: 3px 6px; font-weight: 700; }
+  .add-photo { position: absolute; right: 10px; top: 10px; font-family: var(--mono); font-size: 9px; letter-spacing: .12em; background: rgba(7,8,18,.8); border: 1px solid var(--yellow); color: var(--yellow); padding: 5px 8px; cursor: pointer; }
+  .developing { position: absolute; inset: 0; display: grid; place-items: center; font-family: var(--mono); font-size: 9px; letter-spacing: .2em; color: var(--muted); transition: opacity .4s; pointer-events: none; }
+  .card-name { font-family: var(--geist); font-weight: 500; font-size: 36px; line-height: 1; margin: 14px 0 4px; letter-spacing: -.04em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .card-handle { font-family: var(--mono); font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .card-foot { position: absolute; left: 16px; right: 16px; bottom: 14px; display: flex; justify-content: space-between; border-top: 1px dashed rgba(255,255,255,.2); padding-top: 10px; font-family: var(--mono); font-size: 8px; letter-spacing: .12em; color: var(--muted); }
+  .card-foot b { color: var(--text); }
+
+  .back { transform: rotateY(180deg); }
+  .back .card-top { justify-content: flex-start; }
+  .back .big { margin: 30px 0 0; font-family: var(--comic); color: var(--red); font-size: 84px; line-height: .86; transform: skewX(-8deg); text-shadow: 3px 3px 0 #000; }
+  .back .big span { color: var(--yellow); }
+  .back .dates { font-family: var(--comic); color: var(--text); font-size: 26px; margin-top: 10px; letter-spacing: .03em; }
+  .back .issued { position: absolute; left: 16px; bottom: 50px; }
+  .back .issued .label { font-size: 8px; color: var(--muted); }
+  .back .issued div:last-child { font-family: var(--comic); font-size: 24px; letter-spacing: .04em; margin-top: 4px; }
+
+  #bigName { position: absolute; left: 0; right: 0; bottom: -2vh; z-index: 1; width: 100%; pointer-events: none; }
+
+  .controls { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); z-index: 20; display: flex; gap: 6px; }
+  .icon-btn { width: 42px; height: 42px; display: grid; place-items: center; cursor: pointer; border: 1px solid var(--line-strong); background: rgba(7,8,18,.8); position: relative; }
+  .icon-btn:hover { border-color: var(--yellow); color: var(--yellow); }
+  .icon-btn.hot, .icon-btn[aria-pressed="true"] { border-color: var(--red); color: var(--red); }
+  .icon-btn.off { opacity: .45; }
+  .icon-btn svg { width: 17px; height: 17px; }
+  .icon-btn[data-tip]:hover::after { content: attr(data-tip); position: absolute; bottom: 50px; left: 50%; transform: translateX(-50%); background: var(--text); color: #111; font-family: var(--mono); font-size: 9px; letter-spacing: .12em; padding: 4px 6px; white-space: nowrap; }
+
+  @media (max-width: 960px) {
+    .layout { grid-template-columns: 1fr; gap: 0; padding: 70px 16px 110px; }
+    .stage { order: -1; height: 700px; min-height: 0; margin-top: -70px; }
+    .controls { position: absolute; top: 330px; bottom: auto; left: auto; right: 12px; transform: none; flex-direction: column; }
+    .side { max-width: 460px; width: 100%; margin: 0 auto 36px; }
+    #bigName { top: 400px; bottom: auto; }
+  }
+  @media (max-width: 520px) { .brand .uni { font-size: 12px; } }
+</style>
+</head>
+<body>
+<div class="bg" id="bg" aria-hidden="true"></div>
+
+<header class="topbar">
+  <button class="btn-back" id="backBtn" hidden>← BACK</button>
+  <div class="brand" aria-label="Graphic Era Hill University × Graphite">
+    <div class="uni">Graphic Era<br>Hill University</div>
+    <span class="x">×</span>
+    <div class="g" aria-hidden="true">g</div>
+  </div>
+</header>
+
+<!-- ============ FORM ============ -->
+<main id="formView">
+  <div class="form-wrap">
+    <div class="form-hero" aria-hidden="true">
+      <div class="alt">hackathon at altitude of <b>4494.75 ft</b></div>
+      <div class="logo-type">GRAPHITE'26</div>
+      <div class="dates-type">27–28 OCTOBER</div>
+    </div>
+    <h2>Get your builder card.</h2>
+    <form id="cardForm" novalidate>
+      <div class="field">
+        <label class="label" for="fName">Name on card</label>
+        <div class="input"><input id="fName" maxlength="24" placeholder="Peter Parker" autocomplete="name"></div>
+      </div>
+      <div class="field">
+        <label class="label" for="fLinkedin">LinkedIn profile</label>
+        <div class="input"><span>in/</span><input id="fLinkedin" maxlength="160" placeholder="your-name or paste profile link" autocomplete="off" autocapitalize="off" spellcheck="false"></div>
+      </div>
+      <div class="field">
+        <span class="label" style="display:block;color:var(--muted);font-size:10px;margin-bottom:8px">Photo (optional)</span>
+        <label class="photo-pick">
+          <span class="thumb" id="thumb">+</span>
+          <span class="txt"><b id="photoTxt">Add your photo</b>Stays in your browser, never uploaded.</span>
+          <input class="sr" id="fPhoto" type="file" accept="image/*">
+        </label>
+      </div>
+      <div class="error" id="formError" role="alert"></div>
+      <button class="btn primary" type="submit">Reveal my card ⟶</button>
+    </form>
+    <div class="credit">Developed by <a class="dev-link" target="_blank" rel="noopener">Deepak Negi ↗</a></div>
+  </div>
+</main>
+
+<!-- ============ CARD ============ -->
+<main id="cardView" hidden>
+  <div class="layout">
+    <canvas id="bigName" aria-hidden="true"></canvas>
+
+    <section class="side left">
+      <div class="label red">Builder card / Graphite'26</div>
+      <h1 id="headline">Your card is ready.</h1>
+      <p id="sub"></p>
+      <div id="ownActions">
+        <a class="btn primary" id="shareX" target="_blank" rel="noopener">Share on X</a>
+        <a class="btn" id="shareIn" target="_blank" rel="noopener">Post on LinkedIn</a>
+        <button class="link-btn label" id="saveBtn">↓ Save card image</button>
+      </div>
+      <div id="guestActions" hidden>
+        <button class="btn primary" id="getCardBtn">Get your card ⟶</button>
+        <a class="btn" id="igBtn" target="_blank" rel="noopener">@Graphite.xo ↗</a>
+      </div>
+      <div class="credit">Developed by <a class="dev-link" target="_blank" rel="noopener">Deepak Negi ↗</a></div>
+    </section>
+
+    <section class="stage" id="stage" aria-label="Your builder card. Drag to swing, double-click to flip.">
+      <canvas id="strap"></canvas>
+      <div class="card" id="card">
+        <div class="clip" id="clip"></div>
+        <div class="card3d" id="card3d">
+          <div class="face front">
+            <div class="card-top"><span class="label">Hacking at Graphite'26</span><span class="mini-logo">G'26</span></div>
+            <div class="portrait">
+              <canvas id="portrait" width="516" height="444"></canvas>
+              <div class="developing" id="developing">DEVELOPING PORTRAIT…</div>
+              <i class="corner c1"></i><i class="corner c2"></i><i class="corner c3"></i><i class="corner c4"></i>
+              <span class="role">BUILDER</span>
+              <span class="add-photo" id="addPhotoChip">+ ADD PHOTO</span>
+            </div>
+            <div class="card-name" id="cName"></div>
+            <div class="card-handle" id="cHandle"></div>
+            <div class="card-foot"><span><b>27–28 OCT 2026</b> / GEHU</span><span>ALT <b>4494.75 FT</b></span></div>
+            <div class="shine"></div>
+          </div>
+          <div class="face back">
+            <div class="card-top"><span class="label">Hackathon at 4494.75 ft</span></div>
+            <div class="big">GRAPH<br>ITE<span>'26</span></div>
+            <div class="dates">27–28 OCTOBER 2026</div>
+            <div class="issued"><div class="label">Issued by</div><div>GRAPHITE × GEHU</div></div>
+            <div class="card-foot"><span>@GRAPHITE.XO</span><span>EDITION <b>'26</b></span></div>
+            <div class="shine"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="side right">
+      <div class="label red">The hackathon</div>
+      <p style="margin-top:10px">Two days of building at Graphic Era Hill University, 4,494.75 ft above sea level.</p>
+      <dl class="facts">
+        <div><dt>Dates</dt><dd>27–28 Oct 2026</dd></div>
+        <div><dt>Venue</dt><dd>GEHU campus</dd></div>
+        <div><dt>Registration</dt><dd>Opens 8 Oct</dd></div>
+      </dl>
+      <a class="btn" id="registerBtn" target="_blank" rel="noopener">Register for the hack ↗</a>
+    </section>
+  </div>
+
+  <div class="controls">
+    <button class="icon-btn" id="flipBtn" data-tip="FLIP CARD" aria-label="Flip card">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>
+    </button>
+    <button class="icon-btn" id="photoBtn" data-tip="ADD / CHANGE PHOTO" aria-label="Add or change photo">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>
+    </button>
+    <button class="icon-btn" id="fxBtn" data-tip="PHOTO FX ON" aria-label="Photo FX on" aria-pressed="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/></svg>
+    </button>
+    <button class="icon-btn" id="fsBtn" data-tip="FULL SCREEN (F)" aria-label="Full screen">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
+    </button>
+  </div>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <input class="sr" id="cardPhoto" type="file" accept="image/*" aria-hidden="true" tabindex="-1">
+</main>
+
+<script>
+/* ---- Edit these links ---- */
+const INSTAGRAM_URL = "https://www.instagram.com/graphite.xo/";
+const REGISTER_URL  = "https://www.instagram.com/graphite.xo/"; // replace with the real registration link
+const DEV_LINKEDIN  = "https://www.linkedin.com/in/deepak-negi-678261302/";
+
+const $ = s => document.querySelector(s);
+const RED = [227, 36, 43], YELLOW = [255, 210, 63];
+const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+let photoImg = null;
+let state = { name: "", linkedin: "" };
+
+$("#igBtn").href = INSTAGRAM_URL;
+$("#registerBtn").href = REGISTER_URL;
+document.querySelectorAll(".dev-link").forEach(a => a.href = DEV_LINKEDIN);
+
+/* ---------- spider webs ---------- */
+function webPath(cx, cy, R, spokes, rings, seed = 1) {
+  const rnd = () => (seed = (seed * 9301 + 49297) % 233280) / 233280;
+  const angs = Array.from({ length: spokes }, (_, i) => (i / spokes) * Math.PI * 2 + (rnd() - .5) * .25);
+  let d = "";
+  angs.forEach(a => { d += `M${cx},${cy}L${cx + Math.cos(a) * R},${cy + Math.sin(a) * R}`; });
+  for (let r = 1; r <= rings; r++) {
+    const rr = (r / rings) * R;
+    for (let i = 0; i < spokes; i++) {
+      const a1 = angs[i], a2 = angs[(i + 1) % spokes], am = (a1 + (a2 < a1 ? a2 + Math.PI * 2 : a2)) / 2;
+      d += `M${cx + Math.cos(a1) * rr},${cy + Math.sin(a1) * rr}Q${cx + Math.cos(am) * rr * .82},${cy + Math.sin(am) * rr * .82} ${cx + Math.cos(a2) * rr},${cy + Math.sin(a2) * rr}`;
+    }
+  }
+  return d;
+}
+const web = (cls, seed) => `<svg class="${cls}" viewBox="0 0 400 400"><path d="${webPath(0, 0, 400, 14, 11, seed)}" fill="none" stroke="rgba(255,255,255,.08)"/></svg>`;
+$("#bg").innerHTML = web("l", 3) + web("r", 7);
+
+/* ---------- helpers ---------- */
+// accepts "your-name", "in/your-name" or a full linkedin.com/in/your-name link
+function cleanLinkedin(v) {
+  v = v.trim();
+  const m = v.match(/linkedin\.com\/in\/([^/?#\s]+)/i);
+  let slug = m ? m[1] : v.replace(/^@+/, "").replace(/^in\//i, "");
+  try { slug = decodeURIComponent(slug); } catch {}
+  return slug.replace(/[^\p{L}\p{N}_-]/gu, "").slice(0, 60);
+}
+const mix = (a, b, t) => a.map((v, i) => Math.round(v + (b[i] - v) * t));
+function hash(str) { let h = 2166136261; for (const c of str) { h ^= c.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; }
+const photoKey = () => `g26-photo:${state.name}|${state.linkedin}`;
+
+function loadPhoto(file, cb) {
+  if (!file) return;
+  const url = URL.createObjectURL(file), img = new Image();
+  img.onload = () => {
+    // downscale once so it is light to process and to remember
+    const s = Math.min(1, 520 / Math.max(img.width, img.height)), c = document.createElement("canvas");
+    c.width = img.width * s; c.height = img.height * s;
+    c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+    URL.revokeObjectURL(url);
+    photoImg = c; cb && cb(c);
+  };
+  img.src = url;
+}
+function rememberPhoto() { try { photoImg ? localStorage.setItem(photoKey(), photoImg.toDataURL("image/jpeg", .8)) : localStorage.removeItem(photoKey()); } catch {} }
+function recallPhoto() {
+  return new Promise(res => {
+    let d = null; try { d = localStorage.getItem(photoKey()); } catch {}
+    if (!d) return res(null);
+    const img = new Image(); img.onload = () => res(img); img.onerror = () => res(null); img.src = d;
+  });
+}
+
+/* ---------- form ---------- */
+$("#fPhoto").onchange = e => loadPhoto(e.target.files[0], c => {
+  $("#thumb").innerHTML = ""; const i = new Image(); i.src = c.toDataURL(); $("#thumb").append(i);
+  $("#photoTxt").textContent = "Photo added — tap to change";
+});
+$("#cardForm").onsubmit = e => {
+  e.preventDefault();
+  const name = $("#fName").value.trim().replace(/\s+/g, " ");
+  if (!name) { $("#formError").textContent = "Put a name on your card first."; $("#fName").focus(); return; }
+  $("#formError").textContent = "";
+  showCard({ name, linkedin: cleanLinkedin($("#fLinkedin").value) }, true);
+};
+$("#getCardBtn").onclick = $("#backBtn").onclick = () => {
+  $("#cardView").hidden = true; $("#formView").hidden = false; $("#backBtn").hidden = true;
+  history.replaceState(null, "", location.pathname); document.title = "Graphite'26 Builder Card";
+  sim.running = false;
+};
+
+/* ---------- card page ---------- */
+async function showCard(data, own) {
+  state = data;
+  const { name, linkedin } = data;
+  $("#formView").hidden = true; $("#cardView").hidden = false; $("#backBtn").hidden = false;
+  $("#cName").textContent = name; $("#cHandle").textContent = linkedin ? "in/" + linkedin : "";
+  document.title = `${name}, Builder at Graphite'26`;
+
+  const q = new URLSearchParams({ name }); if (linkedin) q.set("li", linkedin);
+  const shareUrl = location.origin + location.pathname + "?" + q;
+  history.replaceState(null, "", "?" + q);
+
+  $("#ownActions").hidden = !own; $("#guestActions").hidden = own;
+  if (own) {
+    $("#headline").textContent = "Your card is ready.";
+    $("#sub").innerHTML = "Post it and tag <b>Graphite'26</b>. The card image goes with your LinkedIn post.";
+    // only attach the link once the page is hosted; a file:// or localhost URL means nothing to others
+    const isPublic = /^https?:$/.test(location.protocol) && !/^(localhost|127\.|\[::1\])/.test(location.hostname);
+    const text = `I'm hacking at Graphite'26 — a hackathon at an altitude of 4494.75 ft, 27–28 Oct at Graphic Era Hill University. @Graphite.xo`;
+    const withLink = isPublic ? `${text}\n\nGet your builder card: ${shareUrl}` : text;
+    $("#shareX").href = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}${isPublic ? `&url=${encodeURIComponent(shareUrl)}` : ""}`;
+    $("#shareIn").href = `https://www.linkedin.com/feed/?shareActive=true&text=${encodeURIComponent(withLink)}`;
+    rememberPhoto();
+  } else {
+    $("#headline").textContent = `${name} is hacking at Graphite'26.`;
+    $("#sub").textContent = "Builder cards are free for everyone taking part.";
+    photoImg = await recallPhoto();
+  }
+  $("#addPhotoChip").hidden = !!photoImg;
+
+  const cn = $("#cName"); cn.style.fontSize = "";
+  requestAnimationFrame(() => { let s = 34; while (cn.scrollWidth > cn.clientWidth && s > 18) cn.style.fontSize = (s -= 2) + "px"; });
+
+  await document.fonts.ready;
+  buildStrapTexture();
+  drawBigName();
+  developPortrait();
+  sim.start();
+}
+
+/* add / change photo from the card page */
+function pickPhoto() { $("#cardPhoto").value = ""; $("#cardPhoto").click(); }
+$("#photoBtn").onclick = pickPhoto;
+$("#cardPhoto").onchange = e => loadPhoto(e.target.files[0], () => {
+  $("#addPhotoChip").hidden = true; photoFx = true; rememberPhoto(); developPortrait();
+  if (sim.flipTarget) flip();
+});
+
+/* ---------- portrait: ordered (Bayer) dither in flat tones ---------- */
+const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map(v => (v + .5) / 16);
+const RAMP = ["#14070a", "#4d0f15", "#9a1a21", "#e3242b", "#f5715c", "#ffd2c4"]
+  .map(h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16)));
+const PX = 4;            // canvas px per dither pixel (2 css px on the card)
+let photoFx = true;
+
+function sourceCanvas(w, h) {
+  const c = document.createElement("canvas"); c.width = w; c.height = h;
+  const g = c.getContext("2d");
+  if (photoImg) {
+    const r = Math.max(w / photoImg.width, h / photoImg.height), iw = photoImg.width * r, ih = photoImg.height * r;
+    g.drawImage(photoImg, (w - iw) / 2, (h - ih) * .35, iw, ih);
+  } else {
+    const grd = g.createRadialGradient(w * .3, h * .2, 2, w * .4, h * .4, w * .9);
+    grd.addColorStop(0, "#bbb"); grd.addColorStop(1, "#111");
+    g.fillStyle = grd; g.fillRect(0, 0, w, h);
+    g.strokeStyle = "rgba(255,255,255,.75)"; g.lineWidth = .6;
+    g.stroke(new Path2D(webPath(w * .82, h * .1, w * .9, 12, 8, hash(state.name) % 97 + 1)));
+    const ini = state.name.split(" ").filter(Boolean).slice(0, 2).map(p => p[0]).join("").toUpperCase() || "G";
+    g.fillStyle = "#fff"; g.font = `${h * .78}px Bangers`; g.textAlign = "center"; g.textBaseline = "middle";
+    g.save(); g.translate(w / 2, h * .56); g.rotate(-.08); g.fillText(ini, 0, 0); g.restore();
+  }
+  return c;
+}
+function ditherIndices(cols, rows) {
+  const src = sourceCanvas(cols, rows).getContext("2d").getImageData(0, 0, cols, rows).data;
+  const n = cols * rows, L = new Float32Array(n);
+  for (let i = 0; i < n; i++) L[i] = (src[i * 4] * .299 + src[i * 4 + 1] * .587 + src[i * 4 + 2] * .114) / 255;
+  // stretch between the 2nd and 98th percentile so every photo uses the full ramp
+  const sorted = Float32Array.from(L).sort(), lo = sorted[n * .02 | 0], span = Math.max(.05, sorted[n * .98 | 0] - lo);
+  const top = RAMP.length - 1, idx = new Uint8Array(n);
+  for (let y = 0; y < rows; y++) for (let x = 0; x < cols; x++) {
+    const i = y * cols + x;
+    const v = Math.min(1, Math.max(0, ((L[i] - lo) / span - .5) * 1.1 + .5)) * top, k = Math.floor(v);
+    idx[i] = Math.min(top, k + (v - k > BAYER[(y & 3) * 4 + (x & 3)] ? 1 : 0));
+  }
+  return idx;
+}
+let devToken = 0;
+function developPortrait() {
+  const cv = $("#portrait"), g = cv.getContext("2d"), W = cv.width, H = cv.height, token = ++devToken;
+  updateFxBtn();
+  if (photoImg && !photoFx) {                     // Photo FX off: the plain photo
+    g.imageSmoothingEnabled = true; g.drawImage(sourceCanvas(W, H), 0, 0);
+    $("#developing").style.opacity = 0; return;
+  }
+  const cols = Math.ceil(W / PX), rows = Math.ceil(H / PX), idx = ditherIndices(cols, rows);
+  const small = document.createElement("canvas"); small.width = cols; small.height = rows;
+  const sg2 = small.getContext("2d"), img = sg2.createImageData(cols, rows), order = new Float32Array(idx.length).map(Math.random);
+  function frame(p) {
+    for (let i = 0; i < idx.length; i++) {
+      const c = RAMP[order[i] < p ? idx[i] : (Math.random() < .12 ? 1 : 0)];
+      img.data[i * 4] = c[0]; img.data[i * 4 + 1] = c[1]; img.data[i * 4 + 2] = c[2]; img.data[i * 4 + 3] = 255;
+    }
+    sg2.putImageData(img, 0, 0);
+    g.imageSmoothingEnabled = false; g.drawImage(small, 0, 0, W, H);
+  }
+  $("#developing").style.opacity = 1;
+  if (reduceMotion) { frame(2); $("#developing").style.opacity = 0; return; }
+  const t0 = performance.now();
+  (function tick(now) {
+    if (token !== devToken) return;
+    const p = Math.min(1, (now - t0) / 1200);
+    frame(p >= 1 ? 2 : p * p * (3 - 2 * p));
+    if (p > .3) $("#developing").style.opacity = 0;
+    if (p < 1) requestAnimationFrame(tick);
+  })(t0);
+}
+function updateFxBtn() {
+  const b = $("#fxBtn"), on = !!photoImg && photoFx;
+  b.setAttribute("aria-pressed", on);
+  b.classList.toggle("off", !photoImg);
+  const tip = !photoImg ? "PHOTO FX NEEDS A PHOTO" : on ? "PHOTO FX ON" : "PHOTO FX OFF";
+  b.dataset.tip = tip; b.setAttribute("aria-label", tip.toLowerCase());
+}
+$("#fxBtn").onclick = () => {
+  if (!photoImg) return pickPhoto();
+  photoFx = !photoFx; developPortrait();
+};
+
+/* ---------- big name: Geist letters with ordered-dither patches ---------- */
+const bn = { mask: null, W: 0, H: 0, cell: 4, dpr: 1, a: 0, b: 0, c: 0, last: 0 };
+function drawBigName() {
+  const cv = $("#bigName"), dpr = Math.min(2, devicePixelRatio || 1);
+  const W = cv.parentElement.clientWidth, mobile = innerWidth <= 960;
+  const text = state.name.toLowerCase();
+  const m = document.createElement("canvas"), mg = m.getContext("2d");
+  const font = sz => `500 ${sz}px Geist, system-ui, sans-serif`;
+  let size = mobile ? 200 : 420;
+  mg.font = font(size); mg.letterSpacing = `${-size * .05}px`;
+  size = Math.min(size, size * (W * .92) / mg.measureText(text).width);
+  const H = Math.round(size * .74);
+  cv.width = W * dpr; cv.height = H * dpr; cv.style.height = H + "px";
+  m.width = W * dpr; m.height = H * dpr;
+  mg.scale(dpr, dpr); mg.font = font(size); mg.letterSpacing = `${-size * .05}px`;
+  mg.textAlign = "center"; mg.fillText(text, W / 2, size * .9);
+  const s = hash(text);
+  Object.assign(bn, { mask: m, W, H, dpr, cell: Math.max(3, Math.round(size / 95)), a: s % 7, b: (s >> 3) % 5, c: (s >> 6) % 9 });
+  renderBigName(reduceMotion ? 0 : performance.now() / 1000);
+}
+function renderBigName(t) {
+  if (!bn.mask) return;
+  const cv = $("#bigName"), g = cv.getContext("2d"), { W, H, cell, a, b, c } = bn;
+  g.setTransform(bn.dpr, 0, 0, bn.dpr, 0, 0);
+  g.globalCompositeOperation = "source-over";
+  g.fillStyle = "#741118"; g.fillRect(0, 0, W, H);
+  g.fillStyle = "#f0453a";
+  for (let gy = 0, y = 0; y < H; gy++, y += cell) for (let gx = 0, x = 0; x < W; gx++, x += cell) {
+    const n = .5 + .3 * Math.sin(x * .011 + a + t * .12) * Math.cos(y * .024 + b - t * .08) + .2 * Math.sin((x + y * .6) * .008 + c + t * .15);
+    const v = Math.min(1, Math.max(0, (n - .52) * 3.2));
+    if (v > BAYER[(gy & 3) * 4 + (gx & 3)]) g.fillRect(x, y, cell, cell);
+    else if (!(gx & 3) && !(gy & 3) && n > .38) g.fillRect(x + cell * .2, y + cell * .2, cell * .6, cell * .6);
+  }
+  g.globalCompositeOperation = "destination-in";
+  g.setTransform(1, 0, 0, 1, 0, 0); g.drawImage(bn.mask, 0, 0);
+  g.globalCompositeOperation = "source-over";
+}
+
+/* ---------- lanyard strap texture ---------- */
+const STRAP_W = 34, TEX_S = 2;
+let strapTex = null, strapTexBack = null;
+function buildStrapTexture() {
+  const len = 420, w = STRAP_W * TEX_S, h = len * TEX_S;
+  const make = mirror => {
+    const c = document.createElement("canvas"); c.width = w; c.height = h;
+    const g = c.getContext("2d");
+    if (mirror) { g.translate(w, 0); g.scale(-1, 1); }
+    g.fillStyle = "#e3242b"; g.fillRect(0, 0, w, h);
+    g.fillStyle = "rgba(0,0,0,.18)"; g.fillRect(0, 0, 3 * TEX_S, h); g.fillRect(w - 3 * TEX_S, 0, 3 * TEX_S, h);
+    g.save(); g.translate(w / 2, 0); g.rotate(Math.PI / 2);
+    g.fillStyle = "#14040a"; g.font = `700 ${11 * TEX_S}px "Space Mono"`; g.textBaseline = "middle";
+    g.fillText("GRAPHITE'26 ✦ GEHU ✦ 4494.75 FT ✦ GRAPHITE'26 ✦ GEHU ✦ 4494.75 FT ✦ ".repeat(2), 6 * TEX_S, 0);
+    g.restore();
+    return c;
+  };
+  strapTex = make(false); strapTexBack = make(true);
+}
+
+/* ---------- lanyard physics (verlet rope + hanging card) ---------- */
+const stageEl = $("#stage"), cardEl = $("#card"), card3d = $("#card3d"), clipEl = $("#clip"), strapCv = $("#strap"), sg = strapCv.getContext("2d");
+const N = 18;
+const sim = {
+  running: false, pts: [], prev: [], seg: 0, L: 0, ax: 0, ay: -30, k: 1,
+  phi: 0, phiV: 0, yaw: 0, yawV: 0, flip: 0, flipV: 0, flipTarget: 0, t: 0,
+  drag: false, grabX: 0, grabY: 0, tx: 0, ty: 0, acc: 0, last: 0,
+
+  layout() {
+    const r = stageEl.getBoundingClientRect(), dpr = Math.min(2, devicePixelRatio || 1);
+    strapCv.width = r.width * dpr; strapCv.height = r.height * dpr;
+    this.k = Math.min(1, (r.width - 32) / 290);
+    this.ax = r.width / 2;
+    this.L = Math.min(280, r.height * .36);
+    this.seg = this.L / N;
+  },
+  start() {
+    this.layout();
+    const ang = reduceMotion ? 0 : .75;               // start swung out so it drops in
+    this.pts = []; this.prev = [];
+    for (let i = 0; i <= N; i++) {
+      const d = this.seg * i;
+      this.pts.push({ x: this.ax + Math.sin(ang) * d, y: this.ay + Math.cos(ang) * d * .9 });
+      this.prev.push({ ...this.pts[i] });
+    }
+    this.phi = ang; this.phiV = 0; this.yaw = 0; this.yawV = 0; this.flip = 0; this.flipV = 0; this.flipTarget = 0;
+    if (!this.running) { this.running = true; this.last = performance.now(); requestAnimationFrame(t => this.loop(t)); }
+  },
+  step(dt) {
+    const P = this.pts, Q = this.prev, G = 2600, end = N;
+    this.t += dt;
+    for (let i = 1; i <= N; i++) {
+      if (i === end && this.drag) continue;
+      const vx = (P[i].x - Q[i].x) * .99, vy = (P[i].y - Q[i].y) * .99;
+      Q[i].x = P[i].x; Q[i].y = P[i].y;
+      P[i].x += vx; P[i].y += vy + G * dt * dt;
+    }
+    if (this.drag) {
+      Q[end].x = P[end].x; Q[end].y = P[end].y;
+      let tx = this.tx, ty = Math.max(this.ty, this.ay + this.L * .25);
+      const dx = tx - this.ax, dy = ty - this.ay, d = Math.hypot(dx, dy), max = this.L * .995;
+      if (d > max) { tx = this.ax + dx / d * max; ty = this.ay + dy / d * max; }
+      P[end].x = tx; P[end].y = ty;
+    }
+    // constraints: segments, plus a soft bend constraint so it behaves like a ribbon
+    const inv = i => i === 0 ? 0 : (i === end ? (this.drag ? 0 : .12) : 1);
+    for (let it = 0; it < 24; it++) {
+      for (let i = 0; i < N; i++) this.solve(i, i + 1, this.seg, 1, inv);
+      for (let i = 0; i < N - 1; i++) this.solve(i, i + 2, this.seg * 1.96, .04, inv);
+    }
+    // card orientation follows the end of the strap, with a little lag
+    const a = P[end], b = P[end - 2];
+    const target = Math.atan2(a.x - b.x, a.y - b.y);
+    this.phiV += (220 * (target - this.phi) - 22 * this.phiV) * dt; this.phi += this.phiV * dt;
+    // twist from sideways speed, and the flip
+    const vx = (a.x - Q[end].x) / dt;
+    const yawT = Math.max(-1.1, Math.min(1.1, vx / 1100));
+    this.yawV += (70 * (yawT - this.yaw) - 7 * this.yawV) * dt; this.yaw += this.yawV * dt;
+    this.flipV += (45 * (this.flipTarget - this.flip) - 7.5 * this.flipV) * dt; this.flip += this.flipV * dt;
+  },
+  solve(i, j, rest, stiff, inv) {
+    const P = this.pts, wi = inv(i), wj = inv(j), w = wi + wj;
+    if (!w) return;
+    const dx = P[j].x - P[i].x, dy = P[j].y - P[i].y, d = Math.hypot(dx, dy) || 1e-6;
+    if (stiff < 1 && d > rest) return;                 // bend constraint only pushes apart
+    const diff = (d - rest) / d * stiff;
+    P[i].x += dx * diff * wi / w; P[i].y += dy * diff * wi / w;
+    P[j].x -= dx * diff * wj / w; P[j].y -= dy * diff * wj / w;
+  },
+  drawStrap() {
+    const dpr = strapCv.width / stageEl.clientWidth, P = this.pts;
+    sg.setTransform(1, 0, 0, 1, 0, 0); sg.clearRect(0, 0, strapCv.width, strapCv.height);
+    // smooth the rope with Catmull-Rom
+    const S = [];
+    for (let i = 0; i < N; i++) {
+      const p0 = P[Math.max(0, i - 1)], p1 = P[i], p2 = P[i + 1], p3 = P[Math.min(N, i + 2)];
+      for (let t = 0; t < 1; t += .2) {
+        const t2 = t * t, t3 = t2 * t;
+        S.push({
+          x: .5 * (2 * p1.x + (-p0.x + p2.x) * t + (2 * p0.x - 5 * p1.x + 4 * p2.x - p3.x) * t2 + (-p0.x + 3 * p1.x - 3 * p2.x + p3.x) * t3),
+          y: .5 * (2 * p1.y + (-p0.y + p2.y) * t + (2 * p0.y - 5 * p1.y + 4 * p2.y - p3.y) * t2 + (-p0.y + 3 * p1.y - 3 * p2.y + p3.y) * t3),
+        });
+      }
+    }
+    S.push(P[N]);
+    const twistTotal = this.yaw + this.flip, w = STRAP_W * this.k, texH = strapTex.height;
+    let s = 0;
+    for (let i = 0; i < S.length - 1; i++) {
+      const p = S[i], q = S[i + 1], len = Math.hypot(q.x - p.x, q.y - p.y);
+      const u = s / this.L, tw = twistTotal * Math.pow(u, 1.2), c = Math.cos(tw);
+      sg.setTransform(dpr, 0, 0, dpr, 0, 0);
+      sg.translate(p.x, p.y);
+      sg.rotate(Math.atan2(q.y - p.y, q.x - p.x) - Math.PI / 2);
+      sg.scale(c >= 0 ? Math.max(c, .03) : Math.min(c, -.03), 1);
+      const tex = c >= 0 ? strapTex : strapTexBack;
+      const sy = (s / this.L) * (texH * .62);
+      sg.drawImage(tex, 0, sy, tex.width, len * TEX_S + 1, -w / 2, 0, w, len + .8);
+      sg.fillStyle = `rgba(0,0,0,${(1 - Math.abs(c)) * .55})`; sg.fillRect(-w / 2, 0, w, len + .8);
+      s += len;
+    }
+    // tail that disappears inside the clip, aligned with the card
+    const e = P[N], c = Math.cos(twistTotal), tail = 18 * this.k;
+    sg.setTransform(dpr, 0, 0, dpr, 0, 0);
+    sg.translate(e.x, e.y); sg.rotate(-this.phi);
+    sg.scale(c >= 0 ? Math.max(c, .03) : Math.min(c, -.03), 1);
+    sg.drawImage(c >= 0 ? strapTex : strapTexBack, 0, texH * .62, strapTex.width, tail * TEX_S, -w / 2, -1, w, tail);
+    sg.fillStyle = `rgba(0,0,0,${.25 + (1 - Math.abs(c)) * .4})`; sg.fillRect(-w / 2, -1, w, tail);
+  },
+  loop(now) {
+    if (!this.running) return;
+    this.acc += Math.min(.05, (now - this.last) / 1000); this.last = now;
+    const h = 1 / 120;
+    while (this.acc >= h) { this.step(h); this.acc -= h; }
+    this.drawStrap();
+    const e = this.pts[N];
+    cardEl.style.transform = `translate(${e.x - 145}px, ${e.y}px) scale(${this.k}) rotate(${-this.phi}rad)`;
+    card3d.style.transform = `perspective(1300px) rotateY(${this.yaw + this.flip}rad)`;
+    clipEl.style.transform = `perspective(600px) rotateY(${this.yaw + this.flip}rad)`;
+    if (!reduceMotion && now - bn.last > 120) { bn.last = now; renderBigName(now / 1000); }
+    const shine = Math.min(.9, Math.abs(Math.sin(this.yaw + this.flip)) * 1.8);
+    document.querySelectorAll(".shine").forEach(el => el.style.opacity = shine);
+    requestAnimationFrame(t => this.loop(t));
+  },
+};
+
+/* drag */
+let down = null;
+cardEl.addEventListener("pointerdown", e => {
+  if (e.button !== 0) return;
+  const r = stageEl.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top, end = sim.pts[N];
+  sim.grabX = x - end.x; sim.grabY = y - end.y; sim.tx = end.x; sim.ty = end.y;
+  sim.drag = true; down = { x: e.clientX, y: e.clientY, chip: e.target.closest(".add-photo"), moved: 0 };
+  cardEl.setPointerCapture(e.pointerId); cardEl.classList.add("dragging");
+});
+cardEl.addEventListener("pointermove", e => {
+  if (!sim.drag) return;
+  const r = stageEl.getBoundingClientRect();
+  sim.tx = e.clientX - r.left - sim.grabX; sim.ty = e.clientY - r.top - sim.grabY;
+  down.moved = Math.max(down.moved, Math.hypot(e.clientX - down.x, e.clientY - down.y));
+});
+function endDrag() {
+  if (!sim.drag) return;
+  sim.drag = false; cardEl.classList.remove("dragging");
+  const P = sim.pts[N], Q = sim.prev[N], v = Math.hypot(P.x - Q.x, P.y - Q.y), max = 40;
+  if (v > max) { Q.x = P.x - (P.x - Q.x) / v * max; Q.y = P.y - (P.y - Q.y) / v * max; }
+  if (down && down.chip && down.moved < 6) pickPhoto();
+}
+cardEl.addEventListener("pointerup", endDrag);
+cardEl.addEventListener("pointercancel", endDrag);
+cardEl.addEventListener("dblclick", flip);
+function flip() { sim.flipTarget = sim.flipTarget ? 0 : Math.PI; }
+
+$("#flipBtn").onclick = flip;
+$("#fsBtn").onclick = toggleFs;
+function toggleFs() { document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen?.(); }
+addEventListener("keydown", e => {
+  if ($("#cardView").hidden || /INPUT|TEXTAREA/.test(document.activeElement.tagName)) return;
+  if (e.key === "f" || e.key === "F") toggleFs();
+  if (e.key === " ") { e.preventDefault(); flip(); }
+});
+addEventListener("resize", () => {
+  if ($("#cardView").hidden) return;
+  drawBigName();
+  const oldAx = sim.ax; sim.layout();
+  const dx = sim.ax - oldAx; sim.pts.forEach((p, i) => { p.x += dx; sim.prev[i].x += dx; });
+});
+
+/* ---------- save card image (1080x1920, story size) ---------- */
+function rr(g, x, y, w, h, r) { g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath(); }
+function makeCardCanvas() {
+  const W = 1080, H = 1920, c = document.createElement("canvas"); c.width = W; c.height = H;
+  const g = c.getContext("2d");
+  const bg = g.createRadialGradient(W / 2, -200, 50, W / 2, 200, 1400);
+  bg.addColorStop(0, "#1c2a6b"); bg.addColorStop(.55, "#070812"); bg.addColorStop(1, "#070812");
+  g.fillStyle = bg; g.fillRect(0, 0, W, H);
+  g.strokeStyle = "rgba(255,255,255,.10)"; g.lineWidth = 2;
+  g.stroke(new Path2D(webPath(0, 0, 700, 14, 11, 3)));
+  g.save(); g.translate(W, 0); g.scale(-1, 1); g.stroke(new Path2D(webPath(0, 0, 800, 14, 11, 7))); g.restore();
+  const bn = $("#bigName"), bnH = W * bn.height / bn.width;
+  g.drawImage(bn, 0, 1540 - bnH, W, bnH);
+  const cw = 680, ch = 1013, cx = (W - cw) / 2, cy = 330;
+  g.drawImage(strapTex, 0, 0, strapTex.width, strapTex.height * (cy / 840), W / 2 - 40, 0, 80, cy + 10);
+  g.fillStyle = "#3b3e4b"; rr(g, W / 2 - 56, cy - 30, 112, 56, 8); g.fill();
+  g.save(); g.shadowColor = "rgba(0,0,0,.6)"; g.shadowBlur = 60; g.shadowOffsetY = 30;
+  const cg = g.createLinearGradient(cx, cy, cx + cw * .3, cy + ch);
+  cg.addColorStop(0, "#15182f"); cg.addColorStop(.55, "#0b0c18"); cg.addColorStop(1, "#3a0c12");
+  g.fillStyle = cg; rr(g, cx, cy, cw, ch, 36); g.fill(); g.restore();
+  g.strokeStyle = "rgba(255,255,255,.16)"; g.lineWidth = 2; rr(g, cx, cy, cw, ch, 36); g.stroke();
+  const s = cw / 290, X = v => cx + v * s, Y = v => cy + v * s;
+  g.fillStyle = "#ffd23f"; g.font = `700 ${8 * s}px 'Space Mono'`; g.fillText("HACKING AT GRAPHITE'26", X(16), Y(40));
+  g.fillStyle = "#e3242b"; g.font = `${17 * s}px Bangers`; g.textAlign = "right"; g.fillText("G'26", X(274), Y(41)); g.textAlign = "left";
+  g.drawImage($("#portrait"), X(16), Y(54), 258 * s, 222 * s);
+  g.fillStyle = "#f3f3f7"; g.fillRect(X(26), Y(54 + 222 - 25), 52 * s, 15 * s);
+  g.fillStyle = "#111"; g.font = `700 ${8 * s}px 'Space Mono'`; g.fillText("BUILDER", X(30), Y(54 + 222 - 14));
+  g.fillStyle = "#f3f3f7"; let fs = 36; g.font = `500 ${fs * s}px Geist`;
+  while (g.measureText(state.name).width > 258 * s && fs > 16) g.font = `500 ${(fs -= 2) * s}px Geist`;
+  g.fillText(state.name, X(16), Y(322));
+  g.fillStyle = "#9095ad"; g.font = `${11 * s}px 'Space Mono'`; if (state.linkedin) g.fillText("in/" + state.linkedin, X(16), Y(342));
+  g.setLineDash([8, 8]); g.strokeStyle = "rgba(255,255,255,.25)"; g.beginPath(); g.moveTo(X(16), Y(398)); g.lineTo(X(274), Y(398)); g.stroke(); g.setLineDash([]);
+  g.font = `${8 * s}px 'Space Mono'`; g.fillStyle = "#f3f3f7"; g.fillText("27–28 OCT 2026 / GEHU", X(16), Y(416));
+  g.textAlign = "right"; g.fillText("ALT 4494.75 FT", X(274), Y(416));
+  g.textAlign = "center"; g.font = "600 40px 'Titillium Web'"; g.fillText("hackathon at altitude of 4494.75 ft", W / 2, 1620);
+  g.font = "120px Bangers"; g.fillStyle = "#000"; g.fillText("GRAPHITE'26", W / 2 + 6, 1756); g.fillStyle = "#e3242b"; g.fillText("GRAPHITE'26", W / 2, 1750);
+  g.font = "56px Bangers"; g.fillStyle = "#ffd23f"; g.fillText("27–28 OCTOBER · @GRAPHITE.XO", W / 2, 1830);
+  return c;
+}
+const cardFileName = () => `graphite26-${(state.linkedin || state.name).replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "").toLowerCase()}.png`;
+function downloadCanvas(c) {
+  const a = document.createElement("a");
+  a.download = cardFileName(); a.href = c.toDataURL("image/png"); a.click();
+}
+// built synchronously so the clipboard write still counts as part of the click
+function canvasToBlob(c) {
+  const bin = atob(c.toDataURL("image/png").split(",")[1]), u8 = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+  return new Blob([u8], { type: "image/png" });
+}
+$("#saveBtn").onclick = () => downloadCanvas(makeCardCanvas());
+
+/* LinkedIn can't take an image through a link, so hand the card over directly */
+$("#shareIn").onclick = async e => {
+  e.preventDefault();
+  const url = $("#shareIn").href, text = new URL(url).searchParams.get("text") || "";
+  const c = makeCardCanvas(), blob = canvasToBlob(c), file = new File([blob], cardFileName(), { type: "image/png" });
+  // phones: the share sheet passes the image straight to the LinkedIn app
+  if (matchMedia("(pointer: coarse)").matches && navigator.canShare?.({ files: [file] })) {
+    try { await navigator.share({ files: [file], text }); return; }
+    catch (err) { if (err.name === "AbortError") return; }
+  }
+  // desktop: copy the image, keep a copy in Downloads, open the composer to paste into
+  let copied = false;
+  try { await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]); copied = true; } catch {}
+  downloadCanvas(c);
+  const w = window.open(url, "_blank"); if (w) w.opener = null;
+  const paste = /Mac|iPhone|iPad/.test(navigator.platform) ? "⌘V" : "Ctrl+V";
+  toast(copied ? `Card copied — press ${paste} in the LinkedIn post to add it` : "Card saved to Downloads — add it with the photo button in LinkedIn");
+};
+function toast(msg) {
+  const t = $("#toast"); t.textContent = msg; t.classList.add("show");
+  clearTimeout(t._t); t._t = setTimeout(() => t.classList.remove("show"), 6000);
+}
+
+/* ---------- boot ---------- */
+const qp = new URLSearchParams(location.search);
+if (qp.get("name")) showCard({ name: qp.get("name").slice(0, 24), linkedin: cleanLinkedin(qp.get("li") || "") }, false);
+</script>
+</body>
+</html>
