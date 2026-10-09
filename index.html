@@ -109,11 +109,20 @@
   .clip { position: absolute; left: 50%; top: 0; width: 40px; height: 24px; margin-left: -20px; z-index: 3; background: #4a4c55; border-radius: 2px 2px 0 0; }
   .clip::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 3px; background: rgba(0,0,0,.35); }
   .clip::after { content: ""; position: absolute; left: 50%; top: 24px; width: 58px; height: 9px; margin-left: -29px; background: #393b43; border-radius: 1px; }
-  .card3d { position: relative; width: 290px; height: 432px; margin-top: 22px; transform-style: preserve-3d; }
+  .card3d { position: relative; width: 290px; height: 432px; margin-top: 22px; transform-style: preserve-3d; transform-origin: 50% 0;
+    --mx: 50%; --my: 50%; --bgx: 50%; --bgy: 50%; --glare: 0; }
+  /* card thickness: the faces sit 2px either side of centre, these close the gap */
+  .edge { position: absolute; background: linear-gradient(90deg, #1b1d2b, #4a3038 50%, #1b1d2b); }
+  .edge.l, .edge.r { top: 16px; bottom: 16px; width: 4px; margin-left: -2px; transform: rotateY(90deg); }
+  .edge.l { left: 0; } .edge.r { left: 100%; }
+  .edge.t, .edge.b { left: 16px; right: 16px; height: 4px; margin-top: -2px; transform: rotateX(90deg); }
+  .edge.t { top: 0; } .edge.b { top: 100%; }
+  .front { transform: translateZ(2px); }
   .face { position: absolute; inset: 0; backface-visibility: hidden; -webkit-backface-visibility: hidden; border-radius: 16px; overflow: hidden; padding: 22px 16px 14px;
     background: linear-gradient(172deg, #15182f 0%, #0b0c18 55%, #3a0c12 100%); border: 1px solid rgba(255,255,255,.12); box-shadow: 0 30px 60px rgba(0,0,0,.55); user-select: none; -webkit-user-select: none; }
   .face::before { content: ""; position: absolute; top: 4px; left: 50%; width: 62px; height: 13px; margin-left: -31px; border-radius: 7px; background: #050507; }
-  .shine { position: absolute; inset: 0; pointer-events: none; mix-blend-mode: screen; opacity: 0; background: linear-gradient(115deg, transparent 30%, rgba(255,255,255,.3) 45%, rgba(255,210,63,.12) 52%, transparent 65%); }
+  .glare { position: absolute; inset: 0; pointer-events: none; border-radius: inherit; mix-blend-mode: overlay; opacity: var(--glare);
+    background: radial-gradient(farthest-corner circle at var(--mx) var(--my), rgba(255,255,255,.9) 6%, rgba(255,255,255,.35) 26%, rgba(0,0,0,.5) 95%); }
   .card-top { display: flex; justify-content: space-between; align-items: center; margin-top: 6px; }
   .card-top .label { font-size: 8px; letter-spacing: .16em; color: var(--yellow); font-weight: 700; }
   .mini-logo { font-family: var(--comic); color: var(--red); font-size: 17px; letter-spacing: .03em; }
@@ -130,7 +139,7 @@
   .card-foot { position: absolute; left: 16px; right: 16px; bottom: 14px; display: flex; justify-content: space-between; border-top: 1px dashed rgba(255,255,255,.2); padding-top: 10px; font-family: var(--mono); font-size: 8px; letter-spacing: .12em; color: var(--muted); }
   .card-foot b { color: var(--text); }
 
-  .back { transform: rotateY(180deg); }
+  .back { transform: rotateY(180deg) translateZ(2px); }
   .back .card-top { justify-content: flex-start; }
   .back .big { margin: 30px 0 0; font-family: var(--comic); color: var(--red); font-size: 84px; line-height: .86; transform: skewX(-8deg); text-shadow: 3px 3px 0 #000; }
   .back .big span { color: var(--yellow); }
@@ -233,6 +242,7 @@
       <div class="card" id="card">
         <div class="clip" id="clip"></div>
         <div class="card3d" id="card3d">
+          <i class="edge l"></i><i class="edge r"></i><i class="edge t"></i><i class="edge b"></i>
           <div class="face front">
             <div class="card-top"><span class="label">Hacking at Graphite'26</span><span class="mini-logo">G'26</span></div>
             <div class="portrait">
@@ -245,7 +255,7 @@
             <div class="card-name" id="cName"></div>
             <div class="card-handle" id="cHandle"></div>
             <div class="card-foot"><span><b>27–28 OCT 2026</b> / GEHU</span><span>ALT <b>4494.75 FT</b></span></div>
-            <div class="shine"></div>
+            <div class="glare"></div>
           </div>
           <div class="face back">
             <div class="card-top"><span class="label">Hackathon at 4494.75 ft</span></div>
@@ -253,7 +263,7 @@
             <div class="dates">27–28 OCTOBER 2026</div>
             <div class="issued"><div class="label">Issued by</div><div>GRAPHITE × GEHU</div></div>
             <div class="card-foot"><span>@GRAPHITE.XO</span><span>EDITION <b>'26</b></span></div>
-            <div class="shine"></div>
+            <div class="glare"></div>
           </div>
         </div>
       </div>
@@ -589,6 +599,7 @@ const sim = {
       this.prev.push({ ...this.pts[i] });
     }
     this.phi = ang; this.phiV = 0; this.yaw = 0; this.yawV = 0; this.flip = 0; this.flipV = 0; this.flipTarget = 0;
+    this.sweepAt = reduceMotion ? 0 : performance.now() + 1500;   // one light sweep once it has settled a bit
     if (!this.running) { this.running = true; this.last = performance.now(); requestAnimationFrame(t => this.loop(t)); }
   },
   step(dt) {
@@ -671,19 +682,43 @@ const sim = {
     sg.drawImage(c >= 0 ? strapTex : strapTexBack, 0, texH * .62, strapTex.width, tail * TEX_S, -w / 2, -1, w, tail);
     sg.fillStyle = `rgba(0,0,0,${.25 + (1 - Math.abs(c)) * .4})`; sg.fillRect(-w / 2, -1, w, tail);
   },
+  // pointer hover: tilt toward the cursor and move the light with it
+  light(now, dt) {
+    const a = this.yaw + this.flip, k = Math.min(1, dt * 9);
+    const hov = this.hover && !this.drag;
+    // tilt eases toward the cursor, or back to flat
+    this.tiltX += ((hov ? -this.hy * 13 : 0) - this.tiltX) * k;
+    this.tiltY += ((hov ? this.hx * 15 : 0) - this.tiltY) * k;
+    // where the light hits: the cursor while hovering, otherwise wherever the swing turns the card
+    let mx = hov ? 50 + this.hx * 55 : 50 + Math.sin(a) * 70 + this.phi * 40;
+    let my = hov ? 50 + this.hy * 55 : 35 - this.phi * 30;
+    let glare = hov ? .7 : Math.min(.65, Math.abs(Math.sin(a)) * 1.6 + Math.abs(this.phiV) * .06);
+    if (this.sweepAt && now > this.sweepAt) {
+      const p = (now - this.sweepAt) / 1300;
+      if (p >= 1) this.sweepAt = 0;
+      else { mx = -30 + 160 * p; my = 10 + 70 * p; glare = Math.max(glare, Math.sin(p * Math.PI) * .75); }
+    }
+    this.mx += (mx - this.mx) * (this.sweepAt ? 1 : k); this.my += (my - this.my) * (this.sweepAt ? 1 : k);
+    this.glare += (glare - this.glare) * k;
+    const st = card3d.style;
+    st.setProperty("--mx", this.mx + "%"); st.setProperty("--my", this.my + "%");
+    st.setProperty("--bgx", 50 + (this.mx - 50) * .5 + "%"); st.setProperty("--bgy", 50 + (this.my - 50) * .5 + "%");
+    st.setProperty("--glare", this.glare.toFixed(3));
+  },
+  hover: false, hx: 0, hy: 0, tiltX: 0, tiltY: 0, mx: 50, my: 40, glare: 0, sweepAt: 0,
   loop(now) {
     if (!this.running) return;
-    this.acc += Math.min(.05, (now - this.last) / 1000); this.last = now;
+    const fdt = Math.min(.05, (now - this.last) / 1000);
+    this.acc += fdt; this.last = now;
     const h = 1 / 120;
     while (this.acc >= h) { this.step(h); this.acc -= h; }
     this.drawStrap();
     const e = this.pts[N];
     cardEl.style.transform = `translate(${e.x - 145}px, ${e.y}px) scale(${this.k}) rotate(${-this.phi}rad)`;
-    card3d.style.transform = `perspective(1300px) rotateY(${this.yaw + this.flip}rad)`;
+    this.light(now, fdt);
+    card3d.style.transform = `perspective(1300px) rotateX(${this.tiltX}deg) rotateY(${this.yaw + this.flip}rad) rotateY(${this.tiltY}deg)`;
     clipEl.style.transform = `perspective(600px) rotateY(${this.yaw + this.flip}rad)`;
     if (!reduceMotion && now - bn.last > 120) { bn.last = now; renderBigName(now / 1000); }
-    const shine = Math.min(.9, Math.abs(Math.sin(this.yaw + this.flip)) * 1.8);
-    document.querySelectorAll(".shine").forEach(el => el.style.opacity = shine);
     requestAnimationFrame(t => this.loop(t));
   },
 };
@@ -698,7 +733,14 @@ cardEl.addEventListener("pointerdown", e => {
   cardEl.setPointerCapture(e.pointerId); cardEl.classList.add("dragging");
 });
 cardEl.addEventListener("pointermove", e => {
-  if (!sim.drag) return;
+  if (!sim.drag) {
+    if (e.pointerType === "touch") return;
+    const r = card3d.getBoundingClientRect();
+    sim.hover = true;
+    sim.hx = Math.max(-1, Math.min(1, ((e.clientX - r.left) / r.width) * 2 - 1));
+    sim.hy = Math.max(-1, Math.min(1, ((e.clientY - r.top) / r.height) * 2 - 1));
+    return;
+  }
   const r = stageEl.getBoundingClientRect();
   sim.tx = e.clientX - r.left - sim.grabX; sim.ty = e.clientY - r.top - sim.grabY;
   down.moved = Math.max(down.moved, Math.hypot(e.clientX - down.x, e.clientY - down.y));
@@ -711,6 +753,7 @@ function endDrag() {
   if (down && down.chip && down.moved < 6) pickPhoto();
 }
 cardEl.addEventListener("pointerup", endDrag);
+cardEl.addEventListener("pointerleave", () => { sim.hover = false; });
 cardEl.addEventListener("pointercancel", endDrag);
 cardEl.addEventListener("dblclick", flip);
 function flip() { sim.flipTarget = sim.flipTarget ? 0 : Math.PI; }
