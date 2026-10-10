@@ -166,6 +166,10 @@
   .icon-btn:hover { border-color: var(--yellow); color: var(--yellow); }
   .icon-btn.hot, .icon-btn[aria-pressed="true"] { border-color: var(--red); color: var(--red); }
   .icon-btn.off { opacity: .45; }
+  #soundBtn .mute { display: none; }
+  #soundBtn[aria-pressed="false"] .wave { display: none; }
+  #soundBtn[aria-pressed="false"] .mute { display: inline; }
+  #soundBtn[aria-pressed="false"] { border-color: var(--line-strong); color: var(--muted); }
   .icon-btn svg { width: 17px; height: 17px; }
   .icon-btn[data-tip]:hover::after { content: attr(data-tip); position: absolute; bottom: 50px; left: 50%; transform: translateX(-50%); background: var(--text); color: #111; font-family: var(--mono); font-size: 9px; letter-spacing: .12em; padding: 4px 6px; white-space: nowrap; }
 
@@ -301,6 +305,9 @@
     </button>
     <button class="icon-btn" id="fxBtn" data-tip="PHOTO FX ON" aria-label="Photo FX on" aria-pressed="true">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/></svg>
+    </button>
+    <button class="icon-btn" id="soundBtn" data-tip="SOUND ON" aria-label="Sound on" aria-pressed="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M4 9v6h4l5 4V5L8 9z"/><path class="wave" d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"/><path class="mute" d="M16 9l5 6M21 9l-5 6"/></svg>
     </button>
     <button class="icon-btn" id="fsBtn" data-tip="FULL SCREEN (F)" aria-label="Full screen">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
@@ -766,7 +773,59 @@ cardEl.addEventListener("pointerup", endDrag);
 cardEl.addEventListener("pointerleave", () => { sim.hover = false; });
 cardEl.addEventListener("pointercancel", endDrag);
 cardEl.addEventListener("dblclick", flip);
-function flip() { sim.flipTarget = sim.flipTarget ? 0 : Math.PI; }
+function flip() {
+  const dir = sim.flipTarget ? -1 : 1;
+  sim.flipTarget = sim.flipTarget ? 0 : Math.PI;
+  sfx.flip(dir);
+}
+
+/* ---------- flip sound: synthesised, so there are no audio files to load ---------- */
+const sfx = {
+  ctx: null, noise: null,
+  on: (() => { try { return localStorage.getItem("g26-sound") !== "off"; } catch { return true; } })(),
+  init() {
+    if (this.ctx) return this.ctx.state === "suspended" ? this.ctx.resume() : null;
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    this.ctx = new AC();
+    const len = this.ctx.sampleRate, buf = this.ctx.createBuffer(1, len, len), d = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+    this.noise = buf;
+  },
+  flip(dir) {
+    if (!this.on) return;
+    this.init();
+    const c = this.ctx; if (!c) return;
+    const t = c.currentTime + .01;
+    // whoosh: band-passed air that sweeps up then settles, panned the way the card turns
+    const src = c.createBufferSource(); src.buffer = this.noise;
+    const bp = c.createBiquadFilter(); bp.type = "bandpass"; bp.Q.value = 1.1;
+    bp.frequency.setValueAtTime(500, t);
+    bp.frequency.exponentialRampToValueAtTime(2600, t + .16);
+    bp.frequency.exponentialRampToValueAtTime(900, t + .42);
+    const g = c.createGain();
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(.16, t + .09);
+    g.gain.exponentialRampToValueAtTime(.001, t + .45);
+    const pan = c.createStereoPanner ? c.createStereoPanner() : null;
+    let out = g;
+    if (pan) { pan.pan.setValueAtTime(-.45 * dir, t); pan.pan.linearRampToValueAtTime(.45 * dir, t + .42); g.connect(pan); out = pan; }
+    src.connect(bp).connect(g); out.connect(c.destination);
+    src.start(t, Math.random() * .5); src.stop(t + .5);
+  },
+  toggle() {
+    this.on = !this.on;
+    try { localStorage.setItem("g26-sound", this.on ? "on" : "off"); } catch {}
+    this.render();
+    if (this.on) this.init();
+  },
+  render() {
+    const b = $("#soundBtn"), tip = this.on ? "SOUND ON" : "SOUND OFF";
+    b.setAttribute("aria-pressed", this.on); b.dataset.tip = tip; b.setAttribute("aria-label", tip.toLowerCase());
+  },
+};
+sfx.render();
+$("#soundBtn").onclick = () => sfx.toggle();
 
 $("#flipBtn").onclick = flip;
 $("#fsBtn").onclick = toggleFs;
