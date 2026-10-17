@@ -8,6 +8,11 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bangers&family=Geist:wght@400;500;600&family=Space+Mono:wght@400;700&family=Titillium+Web:wght@400;600;700&display=swap" rel="stylesheet">
+<script type="importmap">{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+} }</script>
+<link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js">
 <style>
   :root {
     --bg: #070812;
@@ -104,6 +109,9 @@
 
   .stage { position: relative; height: 100vh; min-height: 680px; z-index: 6; }
   #strap { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+  /* 3D lanyard: spans the full width so the card can swing over the side columns */
+  #gl { position: absolute; top: 0; left: 50%; width: 100vw; height: 100%; transform: translateX(-50%); pointer-events: none; display: block; }
+  .stage.gl .card, .stage.gl #strap { visibility: hidden; }
   .card { --mx: 50%; --my: 40%; --glare: 0; --sheen: .25; position: absolute; left: 0; top: 0; width: 290px; transform-origin: 145px 0; will-change: transform; touch-action: none; cursor: grab; }
   .card.dragging { cursor: grabbing; }
   .clip { position: absolute; left: 50%; top: 0; width: 40px; height: 24px; margin-left: -20px; z-index: 3; border-radius: 2px 2px 0 0;
@@ -437,7 +445,11 @@ async function showCard(data, own) {
   const cn = $("#cName"); cn.style.fontSize = "";
   requestAnimationFrame(() => { let s = 34; while (cn.scrollWidth > cn.clientWidth && s > 18) cn.style.fontSize = (s -= 2) + "px"; });
 
+  // the 3D card paints these fonts onto canvases, so make sure they are in even if nothing on screen uses them yet
+  await Promise.all(["500 36px Geist", "36px Bangers", "700 8px 'Space Mono'", "8px 'Space Mono'", "600 16px 'Titillium Web'"].map(f => document.fonts.load(f).catch(() => {})));
   await document.fonts.ready;
+  const g3 = await glReady;
+  if (g3) sim = g3;
   buildStrapTexture();
   drawBigName();
   developPortrait();
@@ -497,7 +509,7 @@ function developPortrait() {
   updateFxBtn();
   if (photoImg && !photoFx) {                     // Photo FX off: the plain photo
     g.imageSmoothingEnabled = true; g.drawImage(sourceCanvas(W, H), 0, 0);
-    $("#developing").style.opacity = 0; return;
+    $("#developing").style.opacity = 0; sim.refreshFaces?.(); return;
   }
   const cols = Math.ceil(W / PX), rows = Math.ceil(H / PX), idx = ditherIndices(cols, rows);
   const small = document.createElement("canvas"); small.width = cols; small.height = rows;
@@ -509,6 +521,7 @@ function developPortrait() {
     }
     sg2.putImageData(img, 0, 0);
     g.imageSmoothingEnabled = false; g.drawImage(small, 0, 0, W, H);
+    sim.refreshFaces?.(p < 2);
   }
   $("#developing").style.opacity = 1;
   if (reduceMotion) { frame(2); $("#developing").style.opacity = 0; return; }
@@ -594,7 +607,7 @@ function buildStrapTexture() {
 /* ---------- lanyard physics (verlet rope + hanging card) ---------- */
 const stageEl = $("#stage"), cardEl = $("#card"), card3d = $("#card3d"), clipEl = $("#clip"), strapCv = $("#strap"), sg = strapCv.getContext("2d");
 const N = 18;
-const sim = {
+const domSim = {
   running: false, pts: [], prev: [], seg: 0, L: 0, ax: 0, ay: -30, k: 1,
   phi: 0, phiV: 0, yaw: 0, yawV: 0, flip: 0, flipV: 0, flipTarget: 0, t: 0,
   drag: false, grabX: 0, grabY: 0, tx: 0, ty: 0, acc: 0, last: 0,
@@ -738,39 +751,44 @@ const sim = {
     if (!reduceMotion && now - bn.last > 120) { bn.last = now; renderBigName(now / 1000); }
     requestAnimationFrame(t => this.loop(t));
   },
+  resize() {
+    const oldAx = this.ax; this.layout();
+    const dx = this.ax - oldAx; this.pts.forEach((p, i) => { p.x += dx; this.prev[i].x += dx; });
+  },
 };
+let sim = domSim;      // swapped for the three.js lanyard once that has loaded
 
 /* drag */
 let down = null;
 cardEl.addEventListener("pointerdown", e => {
   if (e.button !== 0) return;
-  const r = stageEl.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top, end = sim.pts[N];
-  sim.grabX = x - end.x; sim.grabY = y - end.y; sim.tx = end.x; sim.ty = end.y;
-  sim.drag = true; down = { x: e.clientX, y: e.clientY, chip: e.target.closest(".add-photo"), moved: 0 };
+  const r = stageEl.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top, end = domSim.pts[N];
+  domSim.grabX = x - end.x; domSim.grabY = y - end.y; domSim.tx = end.x; domSim.ty = end.y;
+  domSim.drag = true; down = { x: e.clientX, y: e.clientY, chip: e.target.closest(".add-photo"), moved: 0 };
   cardEl.setPointerCapture(e.pointerId); cardEl.classList.add("dragging");
 });
 cardEl.addEventListener("pointermove", e => {
-  if (!sim.drag) {
+  if (!domSim.drag) {
     if (e.pointerType === "touch") return;
     const r = card3d.getBoundingClientRect();
-    sim.hover = true;
-    sim.hx = Math.max(-1, Math.min(1, ((e.clientX - r.left) / r.width) * 2 - 1));
-    sim.hy = Math.max(-1, Math.min(1, ((e.clientY - r.top) / r.height) * 2 - 1));
+    domSim.hover = true;
+    domSim.hx = Math.max(-1, Math.min(1, ((e.clientX - r.left) / r.width) * 2 - 1));
+    domSim.hy = Math.max(-1, Math.min(1, ((e.clientY - r.top) / r.height) * 2 - 1));
     return;
   }
   const r = stageEl.getBoundingClientRect();
-  sim.tx = e.clientX - r.left - sim.grabX; sim.ty = e.clientY - r.top - sim.grabY;
+  domSim.tx = e.clientX - r.left - domSim.grabX; domSim.ty = e.clientY - r.top - domSim.grabY;
   down.moved = Math.max(down.moved, Math.hypot(e.clientX - down.x, e.clientY - down.y));
 });
 function endDrag() {
-  if (!sim.drag) return;
-  sim.drag = false; cardEl.classList.remove("dragging");
-  const P = sim.pts[N], Q = sim.prev[N], v = Math.hypot(P.x - Q.x, P.y - Q.y), max = 40;
+  if (!domSim.drag) return;
+  domSim.drag = false; cardEl.classList.remove("dragging");
+  const P = domSim.pts[N], Q = domSim.prev[N], v = Math.hypot(P.x - Q.x, P.y - Q.y), max = 40;
   if (v > max) { Q.x = P.x - (P.x - Q.x) / v * max; Q.y = P.y - (P.y - Q.y) / v * max; }
   if (down && down.chip && down.moved < 6) pickPhoto();
 }
 cardEl.addEventListener("pointerup", endDrag);
-cardEl.addEventListener("pointerleave", () => { sim.hover = false; });
+cardEl.addEventListener("pointerleave", () => { domSim.hover = false; });
 cardEl.addEventListener("pointercancel", endDrag);
 cardEl.addEventListener("dblclick", flip);
 function flip() {
@@ -838,9 +856,87 @@ addEventListener("keydown", e => {
 addEventListener("resize", () => {
   if ($("#cardView").hidden) return;
   drawBigName();
-  const oldAx = sim.ax; sim.layout();
-  const dx = sim.ax - oldAx; sim.pts.forEach((p, i) => { p.x += dx; sim.prev[i].x += dx; });
+  sim.resize();
 });
+
+/* ---------- card faces painted onto canvases (3D textures and the saved image) ---------- */
+// Each face is painted in card px (290 x 432) onto three layers: the card body, printed ink and chrome.
+// The saved image passes one context for all three; the 3D card keeps them apart so ink prints matte
+// and chrome stays mirror-like on the metal.
+const CARD_W = 290, CARD_H = 432;
+let chipRect = null;     // where "+ ADD PHOTO" sits on the front, in card px
+function cardBody(g, metal) {
+  const cg = g.createLinearGradient(0, 0, CARD_W * .3, CARD_H);
+  const stops = metal ? ["#2c3150", "#141625", "#5c1c26"] : ["#15182f", "#0b0c18", "#3a0c12"];
+  cg.addColorStop(0, stops[0]); cg.addColorStop(.55, stops[1]); cg.addColorStop(1, stops[2]);
+  g.fillStyle = cg; g.fillRect(0, 0, CARD_W, CARD_H);
+}
+function spaced(g, text, x, y, font, color, ls, align = "left") {
+  g.font = font; g.fillStyle = color; g.textAlign = align;
+  if ("letterSpacing" in g) g.letterSpacing = ls + "px";
+  g.fillText(text, x, y);
+  if ("letterSpacing" in g) g.letterSpacing = "0px";
+  g.textAlign = "left";
+  return g.measureText(text).width;
+}
+// one line in several colours/weights, e.g. bold date then muted venue
+function runs(g, parts, x, y, align) {
+  const widths = parts.map(([t, f]) => { g.font = f; if ("letterSpacing" in g) g.letterSpacing = "1px"; return g.measureText(t).width; });
+  if (align === "right") x -= widths.reduce((a, b) => a + b, 0);
+  parts.forEach(([t, f, c], i) => { spaced(g, t, x, y, f, c, 1); x += widths[i]; });
+}
+function cardFoot(g, left, right) {
+  g.save(); g.setLineDash([3, 3]); g.strokeStyle = "rgba(255,255,255,.2)"; g.lineWidth = 1;
+  g.beginPath(); g.moveTo(16, 398.5); g.lineTo(274, 398.5); g.stroke(); g.restore();
+  runs(g, left, 16, 416); runs(g, right, 274, 416, "right");
+}
+const MONO8 = "8px 'Space Mono'", MONO8B = "700 8px 'Space Mono'";
+function paintFront({ body, ink, chrome }, { metal = false, chip = false } = {}) {
+  cardBody(body, metal);
+  spaced(ink, "HACKING AT GRAPHITE'26", 16, 40, MONO8B, "#ffd23f", 1.3);
+  spaced(ink, "G'26", 274, 41, "17px Bangers", "#e3242b", .5, "right");
+  ink.drawImage($("#portrait"), 16, 54, 258, 222);
+  ink.strokeStyle = "rgba(243,243,247,.8)"; ink.lineWidth = 2;
+  for (const [x, y, sx, sy] of [[16, 54, 1, 1], [274, 54, -1, 1], [16, 276, 1, -1], [274, 276, -1, -1]]) {
+    const cx = x - 4 * sx, cy = y - 4 * sy;
+    ink.beginPath(); ink.moveTo(cx, cy + 11 * sy); ink.lineTo(cx, cy); ink.lineTo(cx + 11 * sx, cy); ink.stroke();
+  }
+  ink.font = MONO8B; if ("letterSpacing" in ink) ink.letterSpacing = "1.3px";
+  const rw = ink.measureText("BUILDER").width + 11;
+  ink.fillStyle = "#f3f3f7"; ink.fillRect(26, 250, rw, 16);
+  spaced(ink, "BUILDER", 32, 261, MONO8B, "#111", 1.3);
+  chipRect = null;
+  if (chip && !photoImg) {
+    ink.font = "9px 'Space Mono'"; if ("letterSpacing" in ink) ink.letterSpacing = "1.1px";
+    const w = ink.measureText("+ ADD PHOTO").width + 15, x = 264 - w, y = 64;
+    ink.fillStyle = "rgba(7,8,18,.85)"; ink.fillRect(x, y, w, 22);
+    ink.strokeStyle = "#ffd23f"; ink.lineWidth = 1; ink.strokeRect(x + .5, y + .5, w - 1, 21);
+    spaced(ink, "+ ADD PHOTO", x + 8, y + 14.5, "9px 'Space Mono'", "#ffd23f", 1.1);
+    chipRect = { x, y, w, h: 22 };
+  }
+  let fs = 36; chrome.font = `500 ${fs}px Geist`; if ("letterSpacing" in chrome) chrome.letterSpacing = "-1.4px";
+  while (chrome.measureText(state.name).width > 258 && fs > 16) chrome.font = `500 ${(fs -= 2)}px Geist`;
+  let nameFill = "#f3f3f7";
+  if (metal) { nameFill = chrome.createLinearGradient(16, 0, 274, 0); nameFill.addColorStop(0, "#c9ccd6"); nameFill.addColorStop(.45, "#ffffff"); nameFill.addColorStop(1, "#aab0bf"); }
+  spaced(chrome, state.name, 16, 322, chrome.font, nameFill, -fs * .04);
+  if (state.linkedin) spaced(ink, "in/" + state.linkedin, 16, 342, "11px 'Space Mono'", "#9095ad", 0);
+  cardFoot(ink, [["27–28 OCT 2026", MONO8B, "#f3f3f7"], [" / GEHU", MONO8, "#9095ad"]], [["ALT ", MONO8, "#9095ad"], ["4494.75 FT", MONO8B, "#f3f3f7"]]);
+}
+function paintBack({ body, ink, chrome }, { metal = false } = {}) {
+  cardBody(body, metal);
+  spaced(ink, "HACKATHON AT 4494.75 FT", 16, 40, MONO8B, "#ffd23f", 1.3);
+  const big = (t, x, y, c) => {
+    ink.save(); ink.translate(x, y); ink.transform(1, 0, -Math.tan(8 * Math.PI / 180), 1, 0, 0);
+    spaced(ink, t, 3, 3, "84px Bangers", "#000", 0); const w = spaced(ink, t, 0, 0, "84px Bangers", c, 0);
+    ink.restore(); return w;
+  };
+  big("GRAPH", 16, 134, "#e3242b");
+  const w = big("ITE", 16, 206, "#e3242b"); big("'26", 16 + w, 206, "#ffd23f");
+  spaced(ink, "27–28 OCTOBER 2026", 16, 246, "26px Bangers", "#f3f3f7", .8);
+  spaced(ink, "ISSUED BY", 16, 352, MONO8, "#9095ad", 1.3);
+  spaced(chrome, "GRAPHITE × GEHU", 16, 380, "24px Bangers", metal ? "#e9ebf0" : "#f3f3f7", 1);
+  cardFoot(ink, [["@GRAPHITE.XO", MONO8, "#9095ad"]], [["EDITION ", MONO8, "#9095ad"], ["'26", MONO8B, "#f3f3f7"]]);
+}
 
 /* ---------- save card image (1080x1920, story size) ---------- */
 function rr(g, x, y, w, h, r) { g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath(); }
@@ -859,24 +955,13 @@ function makeCardCanvas() {
   g.drawImage(strapTex, 0, 0, strapTex.width, strapTex.height * (cy / 840), W / 2 - 40, 0, 80, cy + 10);
   g.fillStyle = "#3b3e4b"; rr(g, W / 2 - 56, cy - 30, 112, 56, 8); g.fill();
   g.save(); g.shadowColor = "rgba(0,0,0,.6)"; g.shadowBlur = 60; g.shadowOffsetY = 30;
-  const cg = g.createLinearGradient(cx, cy, cx + cw * .3, cy + ch);
-  cg.addColorStop(0, "#15182f"); cg.addColorStop(.55, "#0b0c18"); cg.addColorStop(1, "#3a0c12");
-  g.fillStyle = cg; rr(g, cx, cy, cw, ch, 36); g.fill(); g.restore();
+  g.fillStyle = "#0b0c18"; rr(g, cx, cy, cw, ch, 36); g.fill(); g.restore();
+  const s = cw / CARD_W;
+  g.save(); rr(g, cx, cy, cw, ch, 36); g.clip(); g.translate(cx, cy); g.scale(s, s);
+  paintFront({ body: g, ink: g, chrome: g });
+  g.restore();
   g.strokeStyle = "rgba(255,255,255,.16)"; g.lineWidth = 2; rr(g, cx, cy, cw, ch, 36); g.stroke();
-  const s = cw / 290, X = v => cx + v * s, Y = v => cy + v * s;
-  g.fillStyle = "#ffd23f"; g.font = `700 ${8 * s}px 'Space Mono'`; g.fillText("HACKING AT GRAPHITE'26", X(16), Y(40));
-  g.fillStyle = "#e3242b"; g.font = `${17 * s}px Bangers`; g.textAlign = "right"; g.fillText("G'26", X(274), Y(41)); g.textAlign = "left";
-  g.drawImage($("#portrait"), X(16), Y(54), 258 * s, 222 * s);
-  g.fillStyle = "#f3f3f7"; g.fillRect(X(26), Y(54 + 222 - 25), 52 * s, 15 * s);
-  g.fillStyle = "#111"; g.font = `700 ${8 * s}px 'Space Mono'`; g.fillText("BUILDER", X(30), Y(54 + 222 - 14));
-  g.fillStyle = "#f3f3f7"; let fs = 36; g.font = `500 ${fs * s}px Geist`;
-  while (g.measureText(state.name).width > 258 * s && fs > 16) g.font = `500 ${(fs -= 2) * s}px Geist`;
-  g.fillText(state.name, X(16), Y(322));
-  g.fillStyle = "#9095ad"; g.font = `${11 * s}px 'Space Mono'`; if (state.linkedin) g.fillText("in/" + state.linkedin, X(16), Y(342));
-  g.setLineDash([8, 8]); g.strokeStyle = "rgba(255,255,255,.25)"; g.beginPath(); g.moveTo(X(16), Y(398)); g.lineTo(X(274), Y(398)); g.stroke(); g.setLineDash([]);
-  g.font = `${8 * s}px 'Space Mono'`; g.fillStyle = "#f3f3f7"; g.fillText("27–28 OCT 2026 / GEHU", X(16), Y(416));
-  g.textAlign = "right"; g.fillText("ALT 4494.75 FT", X(274), Y(416));
-  g.textAlign = "center"; g.font = "600 40px 'Titillium Web'"; g.fillText("hackathon at altitude of 4494.75 ft", W / 2, 1620);
+  g.textAlign = "center"; g.fillStyle = "#f3f3f7"; g.font = "600 40px 'Titillium Web'"; g.fillText("hackathon at altitude of 4494.75 ft", W / 2, 1620);
   g.font = "120px Bangers"; g.fillStyle = "#000"; g.fillText("GRAPHITE'26", W / 2 + 6, 1756); g.fillStyle = "#e3242b"; g.fillText("GRAPHITE'26", W / 2, 1750);
   g.font = "56px Bangers"; g.fillStyle = "#ffd23f"; g.fillText("27–28 OCTOBER · @GRAPHITE.XO", W / 2, 1830);
   return c;
@@ -916,6 +1001,459 @@ function toast(msg) {
   const t = $("#toast"); t.textContent = msg; t.classList.add("show");
   clearTimeout(t._t); t._t = setTimeout(() => t.classList.remove("show"), 6000);
 }
+
+/* ---------- 3D lanyard (three.js) ----------
+   A metal card with a slot, a split ring through the slot, a lobster clasp, a crimp and a woven strap.
+   Physics is position-based (verlet): the strap is a chain of particles, the card is a rigid body made
+   of five particles held at fixed distances, so it swings, tumbles and twists like the real thing. */
+async function initGL() {
+  try {
+    const [THREE, { RoundedBoxGeometry }] = await Promise.all([import("three"), import("three/addons/geometries/RoundedBoxGeometry.js")]);
+    return makeLanyard3D(THREE, RoundedBoxGeometry);
+  } catch (err) {
+    console.warn("3D card unavailable, using the 2D card instead.", err);
+    return null;
+  }
+}
+
+function makeLanyard3D(THREE, RoundedBoxGeometry) {
+  const V3 = THREE.Vector3;
+  const canvas = document.createElement("canvas");
+  canvas.id = "gl";
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });   // throws without WebGL
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.1;
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  stageEl.prepend(canvas);
+  stageEl.classList.add("gl");
+
+  const scene = new THREE.Scene(), FOV = 26;
+  const camera = new THREE.PerspectiveCamera(FOV, 1, .1, 200);
+
+  /* studio lighting: a dark room with soft boxes, so the metal has something to reflect */
+  const pmrem = new THREE.PMREMGenerator(renderer), room = new THREE.Scene();
+  room.add(new THREE.Mesh(new THREE.SphereGeometry(30, 32, 16), new THREE.MeshBasicMaterial({ color: 0x07080d, side: THREE.BackSide })));
+  const softbox = (w, h, hex, power, x, y, z) => {
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ color: new THREE.Color(hex).multiplyScalar(power), side: THREE.DoubleSide }));
+    m.position.set(x, y, z); m.lookAt(0, 0, 0); room.add(m);
+  };
+  softbox(16, 5, 0xffffff, 4, 0, 12, 4);        // overhead
+  softbox(3, 16, 0xffffff, 3, -12, 1, 7);       // left strip
+  softbox(3, 16, 0xdfe6ff, 2.2, 12, 3, 5);      // right strip, cool
+  softbox(9, 2.5, 0xffffff, 1.6, 4, -3, 14);    // front fill: the streak you see when the card faces you
+  softbox(12, 2, 0xe3242b, 2.5, 0, -10, 6);     // red bounce from below
+  softbox(8, 8, 0x2348c9, 1.6, -5, 4, -12);     // blue from behind
+  scene.environment = pmrem.fromScene(room, .015).texture;
+  pmrem.dispose();
+
+  const key = new THREE.DirectionalLight(0xffffff, 1.4);
+  key.position.set(3, 7, 9); key.castShadow = true;
+  key.shadow.mapSize.set(2048, 2048); key.shadow.radius = 6; key.shadow.bias = -.0005;
+  Object.assign(key.shadow.camera, { left: -9, right: 9, top: 9, bottom: -9, near: 1, far: 30 });
+  scene.add(key);
+  const shadowCatcher = new THREE.Mesh(new THREE.PlaneGeometry(80, 40), new THREE.ShadowMaterial({ opacity: .22 }));
+  shadowCatcher.position.z = -.9; shadowCatcher.receiveShadow = true;
+  scene.add(shadowCatcher);
+
+  /* materials */
+  const chrome = new THREE.MeshPhysicalMaterial({ color: 0xdfe2e9, metalness: 1, roughness: .16, clearcoat: .5, clearcoatRoughness: .1 });
+  const steel = new THREE.MeshPhysicalMaterial({ color: 0xb9bdc8, metalness: 1, roughness: .3 });
+  const maxAniso = renderer.capabilities.getMaxAnisotropy();
+
+  /* card faces: colour + metal/roughness maps painted from the same artwork as the saved image */
+  const TS = 4, layer = () => { const c = document.createElement("canvas"); c.width = CARD_W * TS; c.height = CARD_H * TS; return c; };
+  const brushed = (() => {      // fine horizontal brushing, reused by every face
+    const c = layer(), g = c.getContext("2d");
+    for (let y = 0; y < c.height; y++) {
+      const v = Math.random();
+      g.fillStyle = `rgba(${v > .5 ? 255 : 0},${v > .5 ? 255 : 0},${v > .5 ? 255 : 0},${Math.abs(v - .5) * .09})`;
+      g.fillRect(0, y, c.width, 1);
+    }
+    return c;
+  })();
+  function makeFace(paint) {
+    const L = { color: layer(), mr: layer(), body: layer(), ink: layer(), chrome: layer() };
+    const map = new THREE.CanvasTexture(L.color), mr = new THREE.CanvasTexture(L.mr);
+    map.colorSpace = THREE.SRGBColorSpace;
+    map.anisotropy = mr.anisotropy = maxAniso;
+    const mat = new THREE.MeshPhysicalMaterial({
+      map, roughnessMap: mr, metalnessMap: mr, metalness: 1, roughness: 1,
+      clearcoat: 1, clearcoatRoughness: .14, anisotropy: .5,
+    });
+    const tint = (src, color) => {
+      const c = layer(), g = c.getContext("2d");
+      g.drawImage(src, 0, 0); g.globalCompositeOperation = "source-in"; g.fillStyle = color; g.fillRect(0, 0, c.width, c.height);
+      return c;
+    };
+    function redraw(colorOnly) {
+      const ctx = k => { const g = L[k].getContext("2d"); g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, L[k].width, L[k].height); g.setTransform(TS, 0, 0, TS, 0, 0); return g; };
+      paint({ body: ctx("body"), ink: ctx("ink"), chrome: ctx("chrome") });
+      const c = L.color.getContext("2d");
+      c.drawImage(L.body, 0, 0); c.drawImage(brushed, 0, 0); c.drawImage(L.ink, 0, 0); c.drawImage(L.chrome, 0, 0);
+      map.needsUpdate = true;
+      if (colorOnly) return;
+      // G = roughness, B = metalness: brushed bare metal, matte non-metal ink, polished chrome lettering
+      const m = L.mr.getContext("2d");
+      m.fillStyle = "rgb(0,96,255)"; m.fillRect(0, 0, L.mr.width, L.mr.height);
+      m.globalAlpha = .6; m.drawImage(brushed, 0, 0); m.globalAlpha = 1;
+      m.drawImage(tint(L.ink, "rgb(0,150,0)"), 0, 0);
+      m.drawImage(tint(L.chrome, "rgb(0,50,190)"), 0, 0);
+      mr.needsUpdate = true;
+    }
+    return { mat, redraw };
+  }
+  const front = makeFace(L => paintFront(L, { metal: true, chip: true }));
+  const back = makeFace(L => paintBack(L, { metal: true }));
+
+  /* card body: rounded plate with a punched slot, faces UV-mapped to the artwork, bright machined edges */
+  const U = 1 / 100;                           // world units per card px
+  const W = CARD_W * U, H = CARD_H * U, THICK = .04, BEVEL = .008;
+  const roundRect = (x, y, w, h, r, P = THREE.Shape) => {
+    const s = new P();
+    s.moveTo(x + r, y); s.lineTo(x + w - r, y); s.quadraticCurveTo(x + w, y, x + w, y + r);
+    s.lineTo(x + w, y + h - r); s.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+    s.lineTo(x + r, y + h); s.quadraticCurveTo(x, y + h, x, y + h - r);
+    s.lineTo(x, y + r); s.quadraticCurveTo(x, y, x + r, y);
+    return s;
+  };
+  const SLOT_TOP = H / 2 - .04, SLOT_H = .13, SLOT_W = .62;
+  const outline = roundRect(-W / 2, -H / 2, W, H, .16);
+  outline.holes.push(roundRect(-SLOT_W / 2, SLOT_TOP - SLOT_H, SLOT_W, SLOT_H, SLOT_H / 2, THREE.Path));
+  const cardGeo = new THREE.ExtrudeGeometry(outline, { depth: THICK, bevelEnabled: true, bevelThickness: BEVEL, bevelSize: BEVEL, bevelSegments: 3, curveSegments: 24 });
+  cardGeo.translate(0, 0, -THICK / 2);
+  {
+    const pos = cardGeo.attributes.position, uv = cardGeo.attributes.uv, [caps, sides] = cardGeo.groups, half = caps.count / 2;
+    for (let i = caps.start; i < caps.start + caps.count; i++) {
+      const u = (pos.getX(i) + W / 2) / W;
+      uv.setXY(i, pos.getZ(i) < 0 ? 1 - u : u, (pos.getY(i) + H / 2) / H);   // the back is seen mirrored
+    }
+    const firstIsBack = pos.getZ(caps.start) < 0;
+    cardGeo.clearGroups();
+    cardGeo.addGroup(caps.start, half, firstIsBack ? 0 : 1);
+    cardGeo.addGroup(caps.start + half, half, firstIsBack ? 1 : 0);
+    cardGeo.addGroup(sides.start, sides.count, 2);
+  }
+  const FRONT = 1;
+  const cardMesh = new THREE.Mesh(cardGeo, [back.mat, front.mat, steel]);
+  const cardObj = new THREE.Group();
+  cardObj.add(cardMesh);
+  // split ring: two turns of wire threaded through the slot
+  const RING_R = .13, ringY = SLOT_TOP - .025 + RING_R;
+  for (const dx of [-.011, .011]) {
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(RING_R, .018, 14, 56), chrome);
+    ring.rotation.y = Math.PI / 2; ring.position.set(dx, ringY, 0);
+    cardObj.add(ring);
+  }
+  const PIVOT_Y = ringY + RING_R;              // where the ring hangs on the clasp, in card space
+  scene.add(cardObj);
+
+  // lobster clasp: hook loop, barrel and swivel eye; its origin is the pivot and +y runs up to the strap
+  const CLASP = .52;
+  const clasp = new THREE.Group();
+  const hookPath = new THREE.CatmullRomCurve3([[0, -.04], [.07, -.02], [.1, .06], [.08, .18], [.035, .28], [0, .3], [-.035, .28], [-.08, .18], [-.1, .06], [-.07, -.02]]
+    .map(([x, y]) => new V3(x, y, 0)), true, "centripetal");
+  clasp.add(new THREE.Mesh(new THREE.TubeGeometry(hookPath, 80, .02, 12, true), chrome));
+  const gate = new THREE.Mesh(new THREE.CylinderGeometry(.013, .013, .16, 10), chrome);
+  gate.position.set(.06, .1, .012); gate.rotation.z = -.35; clasp.add(gate);
+  const barrel = new THREE.Mesh(new THREE.CylinderGeometry(.042, .036, .11, 24), chrome);
+  barrel.position.y = .355; clasp.add(barrel);
+  const eye = new THREE.Mesh(new THREE.TorusGeometry(.05, .015, 12, 32), chrome);
+  eye.rotation.y = Math.PI / 2; eye.position.y = .455; clasp.add(eye);
+  scene.add(clasp);
+
+  // crimp end that clamps the folded strap
+  const crimp = new THREE.Mesh(new RoundedBoxGeometry(.42, .2, .075, 4, .03), steel);
+  scene.add(crimp);
+
+  /* strap: a ribbon mesh rebuilt every frame along the simulated rope */
+  const STRAP_W = .34, M = 110;
+  const strapCanvas = (() => {
+    const w = 128, phrase = "GRAPHITE'26 ✦ GEHU ✦ 4494.75 FT ✦ ", font = `700 30px "Space Mono"`;
+    const m = document.createElement("canvas").getContext("2d"); m.font = font;
+    const h = Math.ceil(m.measureText(phrase).width);
+    const c = document.createElement("canvas"); c.width = w; c.height = h;
+    const g = c.getContext("2d");
+    g.fillStyle = "#e3242b"; g.fillRect(0, 0, w, h);
+    g.fillStyle = "rgba(0,0,0,.08)"; for (let y = 0; y < h; y += 3) g.fillRect(0, y, w, 1.2);           // weave
+    g.fillStyle = "rgba(255,255,255,.04)"; for (let x = 0; x < w; x += 4) g.fillRect(x, 0, 1, h);
+    g.fillStyle = "rgba(0,0,0,.22)"; g.fillRect(0, 0, 9, h); g.fillRect(w - 9, 0, 9, h);              // hemmed edges
+    g.fillStyle = "rgba(255,255,255,.22)"; for (let y = 0; y < h; y += 10) { g.fillRect(11, y, 2, 6); g.fillRect(w - 13, y, 2, 6); }
+    g.save(); g.translate(w / 2, 0); g.rotate(Math.PI / 2);
+    g.fillStyle = "#14040a"; g.font = font; g.textBaseline = "middle"; g.fillText(phrase, 0, 0);
+    g.restore();
+    return c;
+  })();
+  const strapTexGL = new THREE.CanvasTexture(strapCanvas);
+  strapTexGL.colorSpace = THREE.SRGBColorSpace; strapTexGL.wrapT = THREE.RepeatWrapping; strapTexGL.anisotropy = maxAniso;
+  const STRAP_PERIOD = STRAP_W * strapCanvas.height / strapCanvas.width;   // world length of one repeat
+  const strapGeo = new THREE.BufferGeometry();
+  const sPos = new Float32Array((M + 1) * 6), sNor = new Float32Array((M + 1) * 6), sUv = new Float32Array((M + 1) * 4), sIdx = [];
+  for (let i = 0; i < M; i++) { const a = i * 2; sIdx.push(a, a + 2, a + 1, a + 1, a + 2, a + 3); }
+  strapGeo.setIndex(sIdx);
+  strapGeo.setAttribute("position", new THREE.BufferAttribute(sPos, 3));
+  strapGeo.setAttribute("normal", new THREE.BufferAttribute(sNor, 3));
+  strapGeo.setAttribute("uv", new THREE.BufferAttribute(sUv, 2));
+  const strap = new THREE.Mesh(strapGeo, new THREE.MeshStandardMaterial({
+    map: strapTexGL, bumpMap: strapTexGL, bumpScale: .6, roughness: .82, metalness: 0, side: THREE.DoubleSide,
+  }));
+  strap.frustumCulled = false;
+  scene.add(strap);
+  for (const o of [cardMesh, strap, clasp, crimp]) o.traverse(m => { m.castShadow = true; });
+
+  /* ---- physics ---- */
+  const N = 16, G = 42, STEP = 1 / 120, ITER = 16;
+  const particle = w => ({ p: new V3(), q: new V3(), w });
+  const rope = Array.from({ length: N + 1 }, (_, i) => particle(i ? 1 : 0));
+  // card particles: the pivot, two bottom corners, and two points off the plane to make it rigid in 3D
+  const LOC = [new V3(0, PIVOT_Y, 0), new V3(-W / 2, -H / 2, 0), new V3(W / 2, -H / 2, 0), new V3(0, 0, .7), new V3(0, 0, -.7)];
+  const body = LOC.map(() => particle(.25));
+  const pivot = body[0], all = [...rope, ...body];
+  const pairs = [];
+  for (let i = 0; i < 5; i++) for (let j = i + 1; j < 5; j++) pairs.push([body[i], body[j], LOC[i].distanceTo(LOC[j])]);
+
+  const tmp = new V3(), tmp2 = new V3(), mid = new V3(), q = new THREE.Quaternion(), m4 = new THREE.Matrix4();
+  const ax = new V3(), ay = new V3(), az = new V3(), center = new V3(), lastCenter = new V3();
+  const anchor = new V3();
+  const wrap = a => Math.atan2(Math.sin(a), Math.cos(a));
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+
+  function link(a, b, rest, k = 1, minOnly = false) {
+    const w = a.w + b.w; if (!w) return;
+    tmp.subVectors(b.p, a.p);
+    const d = tmp.length() || 1e-6;
+    if (minOnly && d > rest) return;
+    tmp.multiplyScalar((d - rest) / d / w * k);
+    a.p.addScaledVector(tmp, a.w); b.p.addScaledVector(tmp, -b.w);
+  }
+  // card axes from its particles
+  function frame() {
+    const [A, B, C] = body;
+    ax.subVectors(C.p, B.p).normalize();
+    mid.addVectors(B.p, C.p).multiplyScalar(.5);
+    ay.subVectors(A.p, mid); ay.addScaledVector(ax, -ay.dot(ax)).normalize();
+    az.crossVectors(ax, ay);
+    center.copy(A.p).addScaledVector(ay, -PIVOT_Y);
+  }
+
+  const S = {
+    running: false, flipTarget: 0,
+    seg: 0, ropeLen: 0, V: 9, t: 0, acc: 0, last: 0,
+    yaw: 0, yawRaw: 0, yawLast: 0, twist: 0, twistRaw: 0,
+    drag: null, pointer: null, hoverDirty: false,
+
+    layout() {
+      const r = canvas.getBoundingClientRect(), sw = stageEl.clientWidth;
+      const k = Math.min(1, (sw - 32) / CARD_W);              // same sizing as the 2D card: full size unless the column is narrow
+      this.V = r.height / (100 * k);
+      renderer.setPixelRatio(Math.min(2, devicePixelRatio || 1));
+      renderer.setSize(r.width, r.height, false);
+      camera.aspect = r.width / r.height;
+      camera.position.set(0, 0, this.V / 2 / Math.tan(FOV / 2 * Math.PI / 180));
+      camera.updateProjectionMatrix();
+      const old = anchor.clone();
+      anchor.set(0, this.V / 2 + .4, 0);
+      this.ropeLen = clamp(this.V * .3, 1.9, 3);
+      this.seg = this.ropeLen / N;
+      return tmp2.subVectors(anchor, old);
+    },
+    // lay the strap out straight at an angle so the card drops in and swings
+    place(ang) {
+      const d = new V3(Math.sin(ang), -Math.cos(ang), 0), up = d.clone().negate(), x = new V3(Math.cos(ang), Math.sin(ang), 0), z = new V3(0, 0, 1);
+      rope.forEach((r, i) => { r.p.copy(anchor).addScaledVector(d, this.seg * i); r.q.copy(r.p); });
+      const piv = rope[N].p.clone().addScaledVector(d, CLASP), c = piv.clone().addScaledVector(up, -PIVOT_Y);
+      body.forEach((b, i) => {
+        const l = LOC[i];
+        b.p.copy(c).addScaledVector(x, l.x).addScaledVector(up, l.y).addScaledVector(z, l.z); b.q.copy(b.p);
+      });
+      frame(); lastCenter.copy(center);
+      this.yaw = this.yawRaw = this.yawLast = 0; this.twist = this.twistRaw = 0;
+    },
+    start() {
+      this.layout();
+      this.refreshFaces();
+      this.flipTarget = 0;
+      this.place(reduceMotion ? 0 : .75);
+      if (!this.running) { this.running = true; this.last = performance.now(); requestAnimationFrame(t => this.loop(t)); }
+    },
+    resize() {
+      const d = this.layout();
+      all.forEach(P => { P.p.add(d); P.q.add(d); });
+    },
+    refreshFaces(colorOnly) { front.redraw(colorOnly); if (!colorOnly) back.redraw(); },
+
+    step(dt) {
+      this.t += dt;
+      // integrate
+      const breeze = reduceMotion || this.drag ? 0 : 1;
+      const wx = breeze * .35 * Math.sin(this.t * .53), wz = breeze * .5 * Math.sin(this.t * .37 + 1.3);
+      for (const P of all) {
+        if (!P.w) continue;
+        tmp.subVectors(P.p, P.q).multiplyScalar(P.w < 1 ? .994 : .986);
+        P.q.copy(P.p); P.p.add(tmp);
+        P.p.y -= G * dt * dt;
+        if (P.w < 1) { P.p.x += wx * dt * dt; P.p.z += wz * dt * dt; }
+      }
+      // torsion: the strap resists twisting and settles the card face-on (or back-on after a flip)
+      frame();
+      const raw = Math.atan2(az.x, az.z);
+      this.yaw += wrap(raw - this.yawRaw); this.yawRaw = raw;
+      const omega = (this.yaw - this.yawLast) / dt; this.yawLast = this.yaw;
+      const vx = (center.x - lastCenter.x) / dt; lastCenter.copy(center);
+      const target = this.flipTarget + (reduceMotion ? 0 : clamp(vx / 14, -.8, .8));   // swinging sideways twists it a little
+      const alpha = clamp(38 * (target - this.yaw) - 5.5 * omega, -260, 260);
+      q.setFromAxisAngle(ay, alpha * dt * dt);
+      for (let i = 1; i < 5; i++) body[i].p.sub(pivot.p).applyQuaternion(q).add(pivot.p);
+      // constraints
+      for (let it = 0; it < ITER; it++) {
+        if (this.drag) this.pull();
+        for (let i = 0; i < N; i++) link(rope[i], rope[i + 1], this.seg);
+        link(rope[N], pivot, CLASP);
+        for (let i = 0; i < N - 1; i++) link(rope[i], rope[i + 2], this.seg * 1.96, .1, true);   // ribbon stiffness
+        link(rope[N - 1], pivot, (this.seg + CLASP) * .97, .3, true);
+        for (const [a, b, r] of pairs) link(a, b, r);
+      }
+    },
+    // dragging: move the grabbed point of the card toward the pointer, spread over the card particles
+    pull() {
+      const { wts, w2, target } = this.drag;
+      tmp.set(0, 0, 0);
+      body.forEach((b, i) => tmp.addScaledVector(b.p, wts[i]));
+      tmp.subVectors(target, tmp).multiplyScalar(1 / w2);
+      body.forEach((b, i) => b.p.addScaledVector(tmp, wts[i]));
+    },
+
+    render(now) {
+      frame();
+      m4.makeBasis(ax, ay, az);
+      cardObj.position.copy(center); cardObj.quaternion.setFromRotationMatrix(m4);
+      const across = updateStrap();
+      // clasp hangs between the strap end and the ring, turned with the strap
+      const end = rope[N].p, cy = tmp.subVectors(end, pivot.p).normalize(), cx = tmp2.copy(across).addScaledVector(cy, -across.dot(cy)).normalize();
+      m4.makeBasis(cx, cy, mid.crossVectors(cx, cy));
+      clasp.position.copy(pivot.p); clasp.quaternion.setFromRotationMatrix(m4);
+      const up = strapEnd.up;
+      m4.makeBasis(across, up, mid.crossVectors(across, up));
+      crimp.position.copy(end).addScaledVector(up, .07); crimp.quaternion.setFromRotationMatrix(m4);
+      renderer.render(scene, camera);
+    },
+    loop(now) {
+      if (!this.running) { document.documentElement.style.cursor = ""; return; }
+      const fdt = clamp((now - this.last) / 1000, 0, .05);    // a frame stamp can predate start()
+      this.acc += fdt; this.last = now;
+      while (this.acc >= STEP) { this.step(STEP); this.acc -= STEP; }
+      if (this.hoverDirty && this.pointer && !this.drag) {
+        this.hoverDirty = false;
+        document.documentElement.style.cursor = hit(this.pointer.x, this.pointer.y) ? "grab" : "";
+      }
+      this.render(now);
+      if (!reduceMotion && now - bn.last > 120) { bn.last = now; renderBigName(now / 1000); }
+      requestAnimationFrame(t => this.loop(t));
+    },
+  };
+
+  /* strap ribbon: smooth curve through the rope, parallel-transported frames, twist spread down its length */
+  const curve = new THREE.CatmullRomCurve3(rope.map(r => r.p), false, "centripetal");
+  const SP = Array.from({ length: M + 1 }, () => new V3()), ST = SP.map(() => new V3()), SA = SP.map(() => new V3());
+  const want = new V3(), nrm = new V3(), strapEnd = { up: new V3() };
+  function updateStrap() {
+    for (let i = 0; i <= M; i++) curve.getPoint(i / M, SP[i]);
+    for (let i = 0; i <= M; i++) ST[i].subVectors(SP[Math.min(M, i + 1)], SP[Math.max(0, i - 1)]).normalize();
+    SA[0].set(1, 0, 0).addScaledVector(ST[0], -ST[0].x).normalize();
+    for (let i = 1; i <= M; i++) SA[i].copy(SA[i - 1]).addScaledVector(ST[i], -SA[i - 1].dot(ST[i])).normalize();
+    // how far the bottom has to turn to line up with the card, kept continuous so full turns wind the strap up
+    const T = ST[M];
+    want.copy(ax).addScaledVector(T, -ax.dot(T)).normalize();
+    const raw = Math.atan2(tmp.crossVectors(SA[M], want).dot(T), SA[M].dot(want));
+    S.twist += wrap(raw - S.twistRaw); S.twistRaw = raw;
+    let s = 0;
+    for (let i = 0; i <= M; i++) {
+      if (i) s += SP[i].distanceTo(SP[i - 1]);
+      q.setFromAxisAngle(ST[i], S.twist * Math.pow(i / M, 1.3));
+      const a = SA[i].applyQuaternion(q), p = SP[i];
+      nrm.crossVectors(ST[i], a);
+      const o = i * 6;
+      sPos[o] = p.x - a.x * STRAP_W / 2; sPos[o + 1] = p.y - a.y * STRAP_W / 2; sPos[o + 2] = p.z - a.z * STRAP_W / 2;
+      sPos[o + 3] = p.x + a.x * STRAP_W / 2; sPos[o + 4] = p.y + a.y * STRAP_W / 2; sPos[o + 5] = p.z + a.z * STRAP_W / 2;
+      sNor[o] = sNor[o + 3] = nrm.x; sNor[o + 1] = sNor[o + 4] = nrm.y; sNor[o + 2] = sNor[o + 5] = nrm.z;
+      const v = -s / STRAP_PERIOD;
+      sUv[i * 4] = 0; sUv[i * 4 + 1] = v; sUv[i * 4 + 2] = 1; sUv[i * 4 + 3] = v;
+    }
+    strapGeo.attributes.position.needsUpdate = strapGeo.attributes.normal.needsUpdate = strapGeo.attributes.uv.needsUpdate = true;
+    strapEnd.up.copy(T).negate();
+    return SA[M];
+  }
+
+  /* ---- pointer: grab, drag, throw, double-click to flip ---- */
+  const raycaster = new THREE.Raycaster(), ndc = new THREE.Vector2();
+  function rayAt(x, y) {
+    const r = canvas.getBoundingClientRect();
+    ndc.set((x - r.left) / r.width * 2 - 1, -(y - r.top) / r.height * 2 + 1);
+    raycaster.setFromCamera(ndc, camera);
+    return raycaster;
+  }
+  const hit = (x, y) => rayAt(x, y).intersectObject(cardObj, true)[0] || null;
+  const onUi = e => e.target.closest?.("button, a, input, label, .toast");
+  const live = () => S.running && !$("#cardView").hidden;
+  // affine weights of a point in card space over four of the card particles
+  const basis = new THREE.Matrix3().set(
+    LOC[1].x - LOC[0].x, LOC[2].x - LOC[0].x, LOC[3].x - LOC[0].x,
+    LOC[1].y - LOC[0].y, LOC[2].y - LOC[0].y, LOC[3].y - LOC[0].y,
+    LOC[1].z - LOC[0].z, LOC[2].z - LOC[0].z, LOC[3].z - LOC[0].z).invert();
+
+  addEventListener("pointerdown", e => {
+    if (!live() || e.button !== 0 || onUi(e)) return;
+    const h = hit(e.clientX, e.clientY);
+    if (!h) return;
+    e.preventDefault();
+    const local = cardObj.worldToLocal(h.point.clone());
+    const c = local.clone().sub(LOC[0]).applyMatrix3(basis);
+    const wts = [1 - c.x - c.y - c.z, c.x, c.y, c.z, 0];
+    const onFront = h.object === cardMesh && h.face.materialIndex === FRONT && h.uv;
+    const cardPx = onFront ? { x: h.uv.x * CARD_W, y: (1 - h.uv.y) * CARD_H } : null;
+    S.drag = {
+      id: e.pointerId, wts, w2: wts.reduce((a, w) => a + w * w, 0), target: h.point.clone(), z: h.point.z,
+      reach: S.ropeLen + CLASP + local.distanceTo(LOC[0]), x: e.clientX, y: e.clientY, moved: 0,
+      chip: chipRect && cardPx && cardPx.x >= chipRect.x && cardPx.x <= chipRect.x + chipRect.w && cardPx.y >= chipRect.y && cardPx.y <= chipRect.y + chipRect.h,
+    };
+    document.documentElement.style.cursor = "grabbing";
+    document.body.style.userSelect = "none";
+  }, true);
+  addEventListener("pointermove", e => {
+    if (e.pointerType === "mouse") { S.pointer = { x: e.clientX, y: e.clientY }; S.hoverDirty = true; }
+    const d = S.drag;
+    if (!d || e.pointerId !== d.id) return;
+    const r = rayAt(e.clientX, e.clientY).ray;
+    d.target.copy(r.origin).addScaledVector(r.direction, (d.z - r.origin.z) / r.direction.z);
+    tmp.subVectors(d.target, anchor);
+    if (tmp.length() > d.reach) d.target.copy(anchor).addScaledVector(tmp.normalize(), d.reach);
+    d.moved = Math.max(d.moved, Math.hypot(e.clientX - d.x, e.clientY - d.y));
+  });
+  function release(e) {
+    const d = S.drag;
+    if (!d || e.pointerId !== d.id) return;
+    S.drag = null;
+    // a hard throw is fun, a teleport is not
+    for (const P of all) { tmp.subVectors(P.p, P.q); const v = tmp.length(); if (v > .28) P.q.copy(P.p).addScaledVector(tmp, -.28 / v); }
+    document.documentElement.style.cursor = e.pointerType === "mouse" && hit(e.clientX, e.clientY) ? "grab" : "";
+    document.body.style.userSelect = "";
+    if (d.chip && d.moved < 6) pickPhoto();
+  }
+  addEventListener("pointerup", release);
+  addEventListener("pointercancel", release);
+  document.documentElement.addEventListener("pointerleave", () => { S.pointer = null; });
+  // touch: only block page scrolling when the touch starts on the card
+  addEventListener("touchstart", e => {
+    if (!live() || onUi(e)) return;
+    const t = e.touches[0];
+    if (t && hit(t.clientX, t.clientY)) e.preventDefault();
+  }, { passive: false });
+  addEventListener("dblclick", e => { if (live() && !onUi(e) && hit(e.clientX, e.clientY)) flip(); });
+
+  return S;
+}
+const glReady = initGL();
 
 /* ---------- boot ---------- */
 const qp = new URLSearchParams(location.search);
