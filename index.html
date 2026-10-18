@@ -177,7 +177,7 @@
   #soundBtn .mute { display: none; }
   #soundBtn[aria-pressed="false"] .wave { display: none; }
   #soundBtn[aria-pressed="false"] .mute { display: inline; }
-  #soundBtn[aria-pressed="false"] { border-color: var(--line-strong); color: var(--muted); }
+  #soundBtn[aria-pressed="false"], #musicBtn[aria-pressed="false"] { border-color: var(--line-strong); color: var(--muted); }
   .icon-btn svg { width: 17px; height: 17px; }
   .icon-btn[data-tip]:hover::after { content: attr(data-tip); position: absolute; bottom: 50px; left: 50%; transform: translateX(-50%); background: var(--text); color: #111; font-family: var(--mono); font-size: 9px; letter-spacing: .12em; padding: 4px 6px; white-space: nowrap; }
 
@@ -314,8 +314,11 @@
     <button class="icon-btn" id="fxBtn" data-tip="PHOTO FX ON" aria-label="Photo FX on" aria-pressed="true">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/></svg>
     </button>
-    <button class="icon-btn" id="soundBtn" data-tip="SOUND ON" aria-label="Sound on" aria-pressed="true">
+    <button class="icon-btn" id="soundBtn" data-tip="SOUND FX ON" aria-label="Sound effects on" aria-pressed="true">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M4 9v6h4l5 4V5L8 9z"/><path class="wave" d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"/><path class="mute" d="M16 9l5 6M21 9l-5 6"/></svg>
+    </button>
+    <button class="icon-btn" id="musicBtn" data-tip="MUSIC OFF (M)" aria-label="Music off" aria-pressed="false">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/></svg>
     </button>
     <button class="icon-btn" id="fsBtn" data-tip="FULL SCREEN (F)" aria-label="Full screen">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
@@ -411,6 +414,7 @@ $("#getCardBtn").onclick = $("#backBtn").onclick = () => {
   $("#cardView").hidden = true; $("#formView").hidden = false; $("#backBtn").hidden = true;
   history.replaceState(null, "", location.pathname); document.title = "Graphite'26 Builder Card";
   sim.running = false;
+  music.stop();
 };
 
 /* ---------- card page ---------- */
@@ -456,6 +460,7 @@ async function showCard(data, own) {
   developPortrait();
   sim.start();
   if (own) sfx.clink(.6);
+  music.start();
 }
 
 /* add / change photo from the card page */
@@ -873,14 +878,158 @@ const sfx = {
     if (this.on) this.init();
   },
   render() {
-    const b = $("#soundBtn"), tip = this.on ? "SOUND ON" : "SOUND OFF";
-    b.setAttribute("aria-pressed", this.on); b.dataset.tip = tip; b.setAttribute("aria-label", tip.toLowerCase());
+    const b = $("#soundBtn"), tip = this.on ? "SOUND FX ON" : "SOUND FX OFF";
+    b.setAttribute("aria-pressed", this.on); b.dataset.tip = tip; b.setAttribute("aria-label", this.on ? "Sound effects on" : "Sound effects off");
   },
 };
 sfx.render();
 $("#soundBtn").onclick = () => sfx.toggle();
-// phones only let audio start inside a tap, and a touch on the card isn't one until it lifts
-addEventListener("touchend", () => { if (sfx.on && !$("#cardView").hidden) sfx.init(); }, true);
+
+/* ---------- music: an original 60s-cartoon hero loop, synthesised and sequenced live ----------
+   D minor, 148 bpm, swung. 16 bars: 8 of drums, walking bass and brass stabs, then the same 8 with a
+   brass lead on top. Notes are written one token per 16th: a note, "-" to hold it, "." for a rest. */
+const hz = n => {
+  const m = /^([A-G])([#b]?)(\d)$/.exec(n);
+  return 440 * 2 ** (({ C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 }[m[1]] + (m[2] === "#") - (m[2] === "b") + (m[3] - 4) * 12 - 9) / 12);
+};
+const notes = line => {
+  const out = Array(16).fill(null); let last = null;
+  line.trim().split(/\s+/).forEach((tok, i) => {
+    if (tok === "-") { if (last) last.len++; }
+    else if (tok === ".") last = null;
+    else out[i] = last = { f: hz(tok), len: 1 };
+  });
+  return out;
+};
+const SONG = {
+  chords: ["Dm", "Dm", "Bb7", "A7", "Dm", "Dm", "Gm", "A7"].map(c => ({
+    Dm: ["D4", "F4", "A4", "C5"], Bb7: ["Bb3", "D4", "F4", "Ab4"], Gm: ["G3", "Bb3", "D4", "F4"], A7: ["A3", "C#4", "E4", "G4"],
+  })[c].map(hz)),
+  bass: [
+    "D2 . D3 . D2 . D3 . D2 . D3 . C3 . A2 .",
+    "D2 . D3 . D2 . D3 . F2 . E2 . D2 . C2 .",
+    "Bb1 . Bb2 . Bb1 . Bb2 . Ab2 . F2 . D2 . Bb1 .",
+    "A1 . A2 . A1 . A2 . G2 . E2 . C#2 . A1 .",
+    "D2 . D3 . D2 . D3 . D2 . D3 . C3 . A2 .",
+    "D2 . D3 . D2 . D3 . F2 . D2 . A1 . Ab1 .",
+    "G1 . G2 . G1 . G2 . F2 . D2 . Bb1 . G#1 .",
+    "A1 . A2 . A1 . A2 . E2 . G2 . E2 . C#2 .",
+  ].map(notes),
+  lead: [
+    "D5 . D5 . . D5 . F5 - - E5 - D5 - . .",
+    ". . A4 . C5 . D5 . F5 . E5 . D5 - - -",
+    "D5 - - . F5 - - . Ab5 - - - G5 - F5 .",
+    "E5 - - - C#5 - - - A4 - - - . . . .",
+    "D5 . D5 . . D5 . F5 - - G5 - A5 - . .",
+    ". . A5 . G5 . F5 . E5 . D5 . C5 - - -",
+    "Bb4 - - . D5 - - . G5 - - - F5 - D5 .",
+    "E5 - C#5 - A4 - - - . . . . . . . .",
+  ].map(notes),
+  stabs: ["x..x..x...x.x...", "x.....x........."],      // busy under the groove, sparse under the lead
+  kick: "x.....x.x.......", snare: "....x.......x...", fill: "....x.......xxxx", hat: "x.x.x.x.x.x.x.x.",
+};
+const S16 = 60 / 148 / 4, SWING = .28 * S16, MUSIC_VOL = .2;     // about -30 dBFS, so the clink and whoosh still cut through
+
+const music = {
+  on: (() => { try { return localStorage.getItem("g26-music") === "on"; } catch { return false; } })(),
+  c: null, bus: null, out: null, timer: null, step: 0, next: 0,
+  start() {
+    if (!this.on || this.timer || $("#cardView").hidden || document.hidden) return;
+    sfx.init();
+    const c = this.c = sfx.ctx; if (!c) return;
+    const comp = this.out = c.createDynamicsCompressor();
+    comp.threshold.value = -18; comp.ratio.value = 4;
+    this.bus = c.createGain();
+    this.bus.gain.setValueAtTime(0, c.currentTime); this.bus.gain.linearRampToValueAtTime(MUSIC_VOL, c.currentTime + .8);
+    this.bus.connect(comp).connect(c.destination);
+    this.step = 0; this.next = c.currentTime + .1;
+    this.timer = setInterval(() => this.tick(), 25); this.tick();
+  },
+  stop() {
+    if (!this.timer) return;
+    clearInterval(this.timer); this.timer = null;
+    const t = this.c.currentTime, g = this.bus.gain, out = this.out;
+    g.cancelScheduledValues(t); g.setValueAtTime(g.value, t); g.linearRampToValueAtTime(0, t + .4);
+    setTimeout(() => out.disconnect(), 600);
+  },
+  // schedule a little ahead of the audio clock so timer jitter never reaches the beat
+  tick() {
+    const c = this.c;
+    if (this.next < c.currentTime - .05) this.next = c.currentTime + .02;    // the page stalled: skip, don't pile up
+    while (this.next < c.currentTime + .15) { this.play(this.step, this.next); this.next += S16; this.step = (this.step + 1) % 256; }
+  },
+  play(step, t) {
+    const bar = step >> 4, s = step & 15, b = bar & 7, lead = bar >= 8;
+    t += s % 4 === 2 ? SWING : 0;
+    if (SONG.kick[s] === "x") this.kick(t);
+    if ((b === 7 ? SONG.fill : SONG.snare)[s] === "x") this.snare(t, b === 7 && s > 12 ? .6 : 1);
+    if (SONG.hat[s] === "x") this.noise(t, "highpass", 7500, s % 4 ? .1 : .16, .04);
+    if (lead && b === 0 && s === 0) this.noise(t, "highpass", 5000, .2, 1.4);           // crash as the lead comes in
+    const bn = SONG.bass[b][s]; if (bn) this.bass(bn.f, t, bn.len * S16 * 1.6);
+    if (SONG.stabs[+lead][s] === "x") this.brass(SONG.chords[b], t, .13, lead ? .5 : .8);
+    const ln = lead && SONG.lead[b][s]; if (ln) this.brass([ln.f], t, ln.len * S16 * .95, 1);
+  },
+  kick(t) {
+    const c = this.c, o = c.createOscillator(), g = c.createGain();
+    o.frequency.setValueAtTime(140, t); o.frequency.exponentialRampToValueAtTime(42, t + .14);
+    g.gain.setValueAtTime(.55, t); g.gain.exponentialRampToValueAtTime(.001, t + .3);
+    o.connect(g).connect(this.bus); o.start(t); o.stop(t + .32);
+  },
+  snare(t, v) {
+    this.noise(t, "highpass", 1200, .38 * v, .16);
+    const c = this.c, o = c.createOscillator(), g = c.createGain();
+    o.type = "triangle"; o.frequency.value = 190;
+    g.gain.setValueAtTime(.3 * v, t); g.gain.exponentialRampToValueAtTime(.001, t + .08);
+    o.connect(g).connect(this.bus); o.start(t); o.stop(t + .1);
+  },
+  noise(t, type, freq, level, decay) {
+    const c = this.c, n = c.createBufferSource(), f = c.createBiquadFilter(), g = c.createGain();
+    n.buffer = sfx.noise; f.type = type; f.frequency.value = freq;
+    g.gain.setValueAtTime(level, t); g.gain.exponentialRampToValueAtTime(.001, t + decay);
+    n.connect(f).connect(g).connect(this.bus); n.start(t, Math.random() * .4); n.stop(t + decay + .02);
+  },
+  bass(f, t, dur) {
+    const c = this.c, o = c.createOscillator(), lp = c.createBiquadFilter(), g = c.createGain();
+    o.type = "sawtooth"; o.frequency.value = f;
+    lp.type = "lowpass"; lp.Q.value = 6;
+    lp.frequency.setValueAtTime(900, t); lp.frequency.exponentialRampToValueAtTime(220, t + dur);
+    g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(.5, t + .008); g.gain.exponentialRampToValueAtTime(.001, t + dur + .06);
+    o.connect(lp).connect(g).connect(this.bus); o.start(t); o.stop(t + dur + .08);
+  },
+  // two detuned saws per note through a filter that blats open on the attack, like a muted trumpet section
+  brass(fs, t, dur, level) {
+    const c = this.c, lp = c.createBiquadFilter(), g = c.createGain(), peak = level * .24 / Math.sqrt(fs.length * 2);
+    lp.type = "lowpass"; lp.Q.value = 2;
+    lp.frequency.setValueAtTime(400, t); lp.frequency.exponentialRampToValueAtTime(3200, t + .04); lp.frequency.exponentialRampToValueAtTime(1400, t + .04 + dur * .6);
+    g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(peak, t + .02);
+    g.gain.setValueAtTime(peak, t + dur); g.gain.exponentialRampToValueAtTime(.001, t + dur + .08);
+    lp.connect(g).connect(this.bus);
+    for (const f of fs) for (const cents of [-7, 7]) {
+      const o = c.createOscillator(); o.type = "sawtooth"; o.frequency.value = f; o.detune.value = cents;
+      o.connect(lp); o.start(t); o.stop(t + dur + .1);
+    }
+  },
+  toggle() {
+    this.on = !this.on;
+    try { localStorage.setItem("g26-music", this.on ? "on" : "off"); } catch {}
+    this.render();
+    this.on ? this.start() : this.stop();
+  },
+  render() {
+    const b = $("#musicBtn"), tip = this.on ? "MUSIC ON (M)" : "MUSIC OFF (M)";
+    b.setAttribute("aria-pressed", this.on); b.dataset.tip = tip; b.setAttribute("aria-label", this.on ? "Music on" : "Music off");
+  },
+};
+music.render();
+$("#musicBtn").onclick = () => music.toggle();
+// background tabs throttle timers, which would stutter the beat, so rest while hidden
+document.addEventListener("visibilitychange", () => document.hidden ? music.stop() : music.start());
+// browsers only let audio start inside a tap or key press, and a touch isn't one until it lifts
+for (const ev of ["pointerdown", "touchend", "keydown"]) addEventListener(ev, () => {
+  if ($("#cardView").hidden) return;
+  if (sfx.on) sfx.init();
+  music.start();
+}, true);
 
 $("#flipBtn").onclick = flip;
 $("#fsBtn").onclick = toggleFs;
@@ -888,6 +1037,7 @@ function toggleFs() { document.fullscreenElement ? document.exitFullscreen() : d
 addEventListener("keydown", e => {
   if ($("#cardView").hidden || /INPUT|TEXTAREA/.test(document.activeElement.tagName)) return;
   if (e.key === "f" || e.key === "F") toggleFs();
+  if (e.key === "m" || e.key === "M") music.toggle();
   if (e.key === " ") { e.preventDefault(); flip(); }
 });
 addEventListener("resize", () => {
