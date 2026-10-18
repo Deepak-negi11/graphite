@@ -404,6 +404,7 @@ $("#cardForm").onsubmit = e => {
   const name = $("#fName").value.trim().replace(/\s+/g, " ");
   if (!name) { $("#formError").textContent = "Put a name on your card first."; $("#fName").focus(); return; }
   $("#formError").textContent = "";
+  if (sfx.on) sfx.init();            // inside the click, so browsers allow the clink once the card is up
   showCard({ name, linkedin: cleanLinkedin($("#fLinkedin").value) }, true);
 };
 $("#getCardBtn").onclick = $("#backBtn").onclick = () => {
@@ -454,6 +455,7 @@ async function showCard(data, own) {
   drawBigName();
   developPortrait();
   sim.start();
+  if (own) sfx.clink(.6);
 }
 
 /* add / change photo from the card page */
@@ -779,6 +781,7 @@ cardEl.addEventListener("pointermove", e => {
   const r = stageEl.getBoundingClientRect();
   domSim.tx = e.clientX - r.left - domSim.grabX; domSim.ty = e.clientY - r.top - domSim.grabY;
   down.moved = Math.max(down.moved, Math.hypot(e.clientX - down.x, e.clientY - down.y));
+  if (!down.lifted && down.moved > 6) { down.lifted = true; sfx.clink(.45); }
 });
 function endDrag() {
   if (!domSim.drag) return;
@@ -797,12 +800,13 @@ function flip() {
   sfx.flip(dir);
 }
 
-/* ---------- flip sound: synthesised, so there are no audio files to load ---------- */
+/* ---------- sounds: synthesised, so there are no audio files to load ---------- */
 const sfx = {
-  ctx: null, noise: null,
+  ctx: null, noise: null, lastClink: -1,
   on: (() => { try { return localStorage.getItem("g26-sound") !== "off"; } catch { return true; } })(),
   init() {
     if (this.ctx) return this.ctx.state === "suspended" ? this.ctx.resume() : null;
+    if (navigator.userActivation && !navigator.userActivation.hasBeenActive) return;   // no audio before the first tap or key
     const AC = window.AudioContext || window.webkitAudioContext;
     if (!AC) return;
     this.ctx = new AC();
@@ -831,6 +835,37 @@ const sfx = {
     src.connect(bp).connect(g); out.connect(c.destination);
     src.start(t, Math.random() * .5); src.stop(t + .5);
   },
+  // clink: the split ring knocking the clasp. Each hit is a steel ring's bending modes (1 : 2.83 : 5.42)
+  // ringing down fast over a tick of noise; the clasp answers a few ms later, lower and softer.
+  clink(strength = .5, pan = 0) {
+    if (!this.on) return;
+    this.init();
+    const c = this.ctx; if (!c) return;
+    if (c.currentTime - this.lastClink < .09) return;       // a rattle, not a buzz
+    this.lastClink = c.currentTime;
+    const s = Math.min(1, Math.max(.2, strength)), t = c.currentTime + .005;
+    let out = c.destination;
+    if (c.createStereoPanner) { out = c.createStereoPanner(); out.pan.value = pan; out.connect(c.destination); }
+    const hit = (at, f0, amp) => {
+      for (const [ratio, level, decay] of [[1, 1, .3], [2.83, .45, .14], [5.42, .22, .07]]) {
+        const o = c.createOscillator(), g = c.createGain();
+        o.frequency.value = f0 * ratio;
+        g.gain.setValueAtTime(0, at);
+        g.gain.linearRampToValueAtTime(amp * level, at + .002);
+        g.gain.exponentialRampToValueAtTime(.0001, at + decay);
+        o.connect(g).connect(out); o.start(at); o.stop(at + decay + .02);
+      }
+      const n = c.createBufferSource(); n.buffer = this.noise;
+      const hp = c.createBiquadFilter(); hp.type = "highpass"; hp.frequency.value = 5000;
+      const g = c.createGain();
+      g.gain.setValueAtTime(amp * .8, at); g.gain.exponentialRampToValueAtTime(.0001, at + .015);
+      n.connect(hp).connect(g).connect(out); n.start(at, Math.random() * .5); n.stop(at + .02);
+    };
+    const amp = .04 * s;                 // sits near the whoosh: these partials land where the ear is most sensitive
+    hit(t, 2500 + Math.random() * 900, amp);                                   // ring
+    hit(t + .02 + Math.random() * .04, 1600 + Math.random() * 500, amp * .55);  // clasp
+    if (s > .6) hit(t + .07 + Math.random() * .05, 2800 + Math.random() * 700, amp * .35);
+  },
   toggle() {
     this.on = !this.on;
     try { localStorage.setItem("g26-sound", this.on ? "on" : "off"); } catch {}
@@ -844,6 +879,8 @@ const sfx = {
 };
 sfx.render();
 $("#soundBtn").onclick = () => sfx.toggle();
+// phones only let audio start inside a tap, and a touch on the card isn't one until it lifts
+addEventListener("touchend", () => { if (sfx.on && !$("#cardView").hidden) sfx.init(); }, true);
 
 $("#flipBtn").onclick = flip;
 $("#fsBtn").onclick = toggleFs;
@@ -1215,9 +1252,10 @@ function makeLanyard3D(THREE, RoundedBoxGeometry) {
 
   const tmp = new V3(), tmp2 = new V3(), mid = new V3(), q = new THREE.Quaternion(), m4 = new THREE.Matrix4();
   const ax = new V3(), ay = new V3(), az = new V3(), center = new V3(), lastCenter = new V3();
-  const anchor = new V3();
+  const anchor = new V3(), pivotV = new V3();
   const wrap = a => Math.atan2(Math.sin(a), Math.cos(a));
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  const panAt = x => clamp(x * 1.4 / (S.V * camera.aspect), -.8, .8);   // world x to stereo pan
 
   function link(a, b, rest, k = 1, minOnly = false) {
     const w = a.w + b.w; if (!w) return;
@@ -1241,7 +1279,7 @@ function makeLanyard3D(THREE, RoundedBoxGeometry) {
     running: false, flipTarget: 0,
     seg: 0, ropeLen: 0, V: 9, t: 0, acc: 0, last: 0,
     yaw: 0, yawRaw: 0, yawLast: 0, twist: 0, twistRaw: 0,
-    drag: null, pointer: null, hoverDirty: false,
+    drag: null, pointer: null, hoverDirty: false, jolt: 0,
 
     layout() {
       const r = canvas.getBoundingClientRect(), sw = stageEl.clientWidth;
@@ -1267,7 +1305,7 @@ function makeLanyard3D(THREE, RoundedBoxGeometry) {
         const l = LOC[i];
         b.p.copy(c).addScaledVector(x, l.x).addScaledVector(up, l.y).addScaledVector(z, l.z); b.q.copy(b.p);
       });
-      frame(); lastCenter.copy(center);
+      frame(); lastCenter.copy(center); pivotV.set(0, 0, 0);
       this.yaw = this.yawRaw = this.yawLast = 0; this.twist = this.twistRaw = 0;
     },
     start() {
@@ -1314,6 +1352,10 @@ function makeLanyard3D(THREE, RoundedBoxGeometry) {
         link(rope[N - 1], pivot, (this.seg + CLASP) * .97, .3, true);
         for (const [a, b, r] of pairs) link(a, b, r);
       }
+      // how hard the ring was yanked: change in the pivot's velocity, smoothed so 60 Hz pointer moves don't read as jolts
+      tmp.subVectors(pivot.p, pivot.q).divideScalar(dt);
+      tmp2.copy(pivotV); pivotV.lerp(tmp, .25);
+      this.jolt = Math.max(this.jolt, pivotV.distanceTo(tmp2) / dt);
     },
     // dragging: move the grabbed point of the card toward the pointer, spread over the card particles
     pull() {
@@ -1343,6 +1385,9 @@ function makeLanyard3D(THREE, RoundedBoxGeometry) {
       const fdt = clamp((now - this.last) / 1000, 0, .05);    // a frame stamp can predate start()
       this.acc += fdt; this.last = now;
       while (this.acc >= STEP) { this.step(STEP); this.acc -= STEP; }
+      // free swings stay under ~50 and ordinary drags under ~550; shakes and whips reach 2000-5500
+      if (this.jolt > 900) sfx.clink(.25 + .75 * clamp((this.jolt - 900) / 4000, 0, 1), panAt(center.x));
+      this.jolt = 0;
       if (this.hoverDirty && this.pointer && !this.drag) {
         this.hoverDirty = false;
         document.documentElement.style.cursor = hit(this.pointer.x, this.pointer.y) ? "grab" : "";
@@ -1429,6 +1474,7 @@ function makeLanyard3D(THREE, RoundedBoxGeometry) {
     tmp.subVectors(d.target, anchor);
     if (tmp.length() > d.reach) d.target.copy(anchor).addScaledVector(tmp.normalize(), d.reach);
     d.moved = Math.max(d.moved, Math.hypot(e.clientX - d.x, e.clientY - d.y));
+    if (!d.lifted && d.moved > 6) { d.lifted = true; sfx.clink(.45, panAt(d.target.x)); }   // picked up, not just clicked
   });
   function release(e) {
     const d = S.drag;
